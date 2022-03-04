@@ -1,0 +1,21 @@
+{
+  "name": "jest-integration",
+  "private": true,
+  "devDependencies": {
+    "@types/temp": "^0.9.1",
+    "@unflakable/jest-plugin": "workspace:^",
+    "@unflakable/js-api": "workspace:^",
+    "chalk": "^3.0.0 || ^4.0.0",
+    "deep-equal": "^2.0.5",
+    "fetch-mock-jest": "^1.5.1",
+    "jest": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "temp": "^0.9.4"
+  },
+  "scripts": {
+    "test": "jest --useStderr --verbose",
+    "typecheck": "tsc --build"
+  },
+  "unflakable": {
+    "enabled": false
+  }
+}

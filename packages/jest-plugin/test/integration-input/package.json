@@ -1,0 +1,14 @@
+{
+  "name": "jest-integration-input",
+  "private": true,
+  "devDependencies": {
+    "@unflakable/jest-plugin": "workspace:^",
+    "@unflakable/js-api": "workspace:^",
+    "jest": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "jest-each": "^25.1.0 || ^26.0.0 || ^27.0.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "typecheck": "tsc --build"
+  }
+}

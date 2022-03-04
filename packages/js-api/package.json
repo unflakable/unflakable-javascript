@@ -1,0 +1,25 @@
+{
+  "name": "@unflakable/js-api",
+  "description": "JavaScript API for Unflakable",
+  "repository": "https://github.com/unflakable/unflakable-javascript",
+  "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
+  "homepage": "https://unflakable.com",
+  "license": "MIT",
+  "version": "1.0.0-alpha.3",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.1"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch"
+  }
+}

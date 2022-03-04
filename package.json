@@ -1,0 +1,36 @@
+{
+  "packageManager": "yarn@3.2.0",
+  "private": true,
+  "devDependencies": {
+    "@babel/preset-env": "^7.16.11",
+    "@babel/preset-typescript": "^7.16.7",
+    "@types/js-yaml": "^4.0.5",
+    "@types/node": "npm:^14",
+    "@typescript-eslint/eslint-plugin": "^5.13.0",
+    "@typescript-eslint/parser": "^5.13.0",
+    "eslint": "^8.10.0",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-jest": "^26.1.1",
+    "js-yaml": "^4.1.0",
+    "prettier": "^2.5.1",
+    "ts-node": "^10.7.0",
+    "typescript": "4.5.5"
+  },
+  "scripts": {
+    "audit": "yarn npm audit --all --recursive",
+    "build": "yarn build:plugins && yarn typecheck:scripts && yarn typecheck:tests",
+    "build:plugins": "yarn workspace @unflakable/js-api build && yarn workspace @unflakable/jest-plugin build",
+    "typecheck:scripts": "tsc --noEmit scripts/**/*.ts",
+    "typecheck:tests": "yarn workspace jest-integration typecheck && yarn workspace jest-integration-input typecheck",
+    "lint": "eslint packages/**/src/*.{ts,js} scripts/**/*.{ts,js}",
+    "prettier": "prettier --write packages/**/src/*.{ts,js}",
+    "prettier:check": "prettier --check packages/**/src/*.{ts,js}",
+    "publish:private": "yarn workspace @unflakable/js-api npm publish && yarn workspace @unflakable/jest-plugin npm publish",
+    "set-jest-version": "ts-node scripts/set-jest-version.ts"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/jest-plugin/test/integration",
+    "packages/jest-plugin/test/integration-input"
+  ]
+}

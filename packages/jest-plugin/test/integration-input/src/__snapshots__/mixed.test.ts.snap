@@ -1,0 +1,7 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`mixed mixed: should be quarantined 1`] = `
+Object {
+  "foo": true,
+}
+`;

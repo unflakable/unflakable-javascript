@@ -1,0 +1,53 @@
+{
+  "name": "@unflakable/jest-plugin",
+  "description": "Jest plugin for Unflakable",
+  "repository": "https://github.com/unflakable/unflakable-javascript",
+  "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
+  "homepage": "https://unflakable.com",
+  "license": "MIT",
+  "version": "1.0.0-alpha.3",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "dependencies": {
+    "@unflakable/js-api": "workspace:^",
+    "cosmiconfig": "^7.0.1",
+    "debug": "^4.3.3",
+    "deep-equal": "^2.0.5",
+    "escape-string-regexp": "^4.0.0",
+    "simple-git": "^3.7.1"
+  },
+  "devDependencies": {
+    "@jest/console": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "@jest/reporters": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "@jest/test-result": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "@jest/types": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "@types/chalk": "^2.2.0",
+    "@types/debug": "^4.1.7",
+    "@types/deep-equal": "^1.0.1",
+    "@types/exit": "^0.1.31",
+    "@types/jest": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "chalk": "^3.0.0 || ^4.0.0",
+    "exit": "^0.1.2",
+    "jest-runner": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "jest-util": "^25.1.0 || ^26.0.0 || ^27.0.0"
+  },
+  "peerDependencies": {
+    "@jest/console": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "@jest/reporters": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "jest-runner": "^25.1.0 || ^26.0.0 || ^27.0.0",
+    "jest-util": "^25.1.0 || ^26.0.0 || ^27.0.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch"
+  }
+}
