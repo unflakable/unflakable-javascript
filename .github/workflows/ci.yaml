@@ -116,5 +116,10 @@ jobs:
       - working-directory: packages/jest-plugin/test/integration
         env:
           DEBUG: unflakable:*
-          UNFLAKABLE_SUITE_ID: 28UidZ8cSKjRe4g1xkd9EE8noDF
-        run: yarn test
+        run: |
+          if [ "${{ github.repository }}" == "unflakable/unflakable-javascript" ]; then
+            export UNFLAKABLE_SUITE_ID=29KWCuK12VnU7pkpvWgrGS0woAX
+          else
+            export UNFLAKABLE_SUITE_ID=28UidZ8cSKjRe4g1xkd9EE8noDF
+          fi
+          yarn test
