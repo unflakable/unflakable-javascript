@@ -1,14 +1,18 @@
 {
   "name": "@unflakable/js-api",
   "description": "JavaScript API for Unflakable",
-  "repository": "https://github.com/unflakable/unflakable-javascript",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unflakable/unflakable-javascript.git"
+  },
   "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
   "homepage": "https://unflakable.com",
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
+    "README.md",
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],

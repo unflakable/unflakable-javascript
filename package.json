@@ -25,7 +25,7 @@
     "lint": "eslint packages/**/src/*.{ts,js} scripts/**/*.{ts,js}",
     "prettier": "prettier --write packages/**/src/*.{ts,js}",
     "prettier:check": "prettier --check packages/**/src/*.{ts,js}",
-    "publish:private": "yarn workspace @unflakable/js-api npm publish && yarn workspace @unflakable/jest-plugin npm publish",
+    "publish": "yarn workspace @unflakable/js-api npm publish --access public && yarn workspace @unflakable/jest-plugin npm publish --access public",
     "set-jest-version": "ts-node scripts/set-jest-version.ts"
   },
   "workspaces": [
