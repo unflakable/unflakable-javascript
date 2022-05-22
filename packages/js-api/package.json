@@ -5,7 +5,7 @@
   "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
   "homepage": "https://unflakable.com",
   "license": "MIT",
-  "version": "1.0.0-alpha.3",
+  "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
