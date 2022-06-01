@@ -1314,6 +1314,8 @@ export const runTestCase = async (
         // --no-cache disables the cache that stores the past timings, which makes the output
         // non-deterministic since it gets bolded if it exceeds the expected time.
         "--no-cache",
+        "--reporters", "@unflakable/jest-plugin/dist/reporter",
+        "--runner", "@unflakable/jest-plugin/dist/runner",
         ...(skipFailures
           ? [
               "--testPathIgnorePatterns",

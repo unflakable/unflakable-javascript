@@ -110,7 +110,6 @@ jobs:
       - name: Enable Unflakable dogfooding
         run: |
           echo "UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }}" >> $GITHUB_ENV
-          echo "UNFLAKABLE_ENABLED=true" >> $GITHUB_ENV
         if: github.event.action != 'pull_request'
 
       - working-directory: packages/jest-plugin/test/integration
@@ -122,4 +121,6 @@ jobs:
           else
             export UNFLAKABLE_SUITE_ID=28UidZ8cSKjRe4g1xkd9EE8noDF
           fi
-          yarn test
+          yarn test \
+            --reporters @unflakable/jest-plugin/dist/reporter \
+            --runner @unflakable/jest-plugin/dist/runner

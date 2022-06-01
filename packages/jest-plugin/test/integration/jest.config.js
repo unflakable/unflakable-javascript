@@ -3,9 +3,6 @@
 module.exports = {
   testEnvironment: "node",
 
-  reporters: ["@unflakable/jest-plugin/dist/reporter"],
-  runner: "@unflakable/jest-plugin/dist/runner",
-
   transform: {
     "^.+\\.[jt]s$": [
       "babel-jest",
