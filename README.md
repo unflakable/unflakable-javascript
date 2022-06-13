@@ -4,7 +4,7 @@
   </a>
 </p>
 
-[![Twitter Follow](https://img.shields.io/twitter/url?label=%40unflakable&style=social&url=https%3A%2F%2Ftwitter.com%2Fintent%2Ffollow%3Fscreen_name%3Dunflakable)](https://twitter.com/intent/follow?screen_name=unflakable)
+[![Twitter](https://img.shields.io/twitter/url?label=%40unflakable&style=social&url=https%3A%2F%2Ftwitter.com%2Funflakable)](https://twitter.com/unflakable)
 
 # Official Unflakable Plugins for JavaScript
 
@@ -28,13 +28,8 @@ complete usage instructions.
 
 This plugin maintains compatibility with the Jest and Node.js versions listed below:
 
-[![27.0.0+](https://img.shields.io/badge/Jest-27.0.0%2B-C21325?logo=jest&labelColor=white&logoColor=C21325&style=flat-square)](#)
-[![26.0.0+](https://img.shields.io/badge/Jest-26.0.0%2B-C21325?logo=jest&labelColor=white&logoColor=C21325&style=flat-square)](#)
-[![25.1.0+](https://img.shields.io/badge/Jest-25.1.0%2B-C21325?logo=jest&labelColor=white&logoColor=C21325&style=flat-square)](#)
-<br/>
-[![18](https://img.shields.io/badge/Node.js-18-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat-square)](#)
-[![16](https://img.shields.io/badge/Node.js-16-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat-square)](#)
-[![14](https://img.shields.io/badge/Node.js-14-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat-square)](#)
+[![25.1.0+ | 26.0.0+ | 27.0.0+ | ](https://img.shields.io/badge/Jest-25.1.0%2B%20%7C%2026.0.0%2B%20%7C%2027.0.0%2B-C21325?logo=jest&labelColor=white&logoColor=C21325&style=flat)](https://jestjs.io)
+[![14 | 16 | 18](https://img.shields.io/badge/Node.js-14%20%7C%2016%20%7C%2018-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat)](https://nodejs.org)
 
 ## Contributing
 
