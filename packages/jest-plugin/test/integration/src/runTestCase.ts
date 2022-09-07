@@ -12,7 +12,8 @@ import {
 import { run } from "jest";
 import escapeStringRegexp from "escape-string-regexp";
 import {
-  CreateTestSuiteRunRequest,
+  CreateTestSuiteRunFromUploadRequest,
+  CreateTestSuiteRunInlineRequest,
   TEST_NAME_ENTRY_MAX_LENGTH,
   TestAttemptResult,
   TestRunAttemptRecord,
@@ -26,6 +27,7 @@ import deepEqual from "deep-equal";
 import * as cosmiconfig from "cosmiconfig";
 import { CosmiconfigResult } from "cosmiconfig/dist/types";
 import { UnflakableConfig } from "../../../src/types";
+import { gunzipSync } from "zlib";
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-jest-plugin/(?:[-0-9.]|alpha|beta)+ \\(Jest [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
@@ -487,7 +489,9 @@ const uploadResultsMatcher =
     results: ResultCounts
   ): MockMatcher =>
   (_url, { body, headers }) => {
-    const parsedBody = JSON.parse(body as string) as CreateTestSuiteRunRequest;
+    const parsedBody = JSON.parse(
+      gunzipSync(body as string).toString()
+    ) as CreateTestSuiteRunInlineRequest;
 
     expect((headers as { [key in string]: string })["User-Agent"]).toMatch(
       userAgentRegex
@@ -802,6 +806,52 @@ const addFetchMockExpectations = (
         }
   );
   if (expectResultsToBeUploaded) {
+    const uploadUrl =
+      "https://s3.mock.amazonaws.com/unflakable-backend-mock-test-uploads/teams/MOCK_TEAM_ID/" +
+      `suites/${expectedSuiteId}/runs/upload/MOCK_UPLOAD_ID?X-Amz-Signature=MOCK_SIGNATURE`;
+    fetchMock.postOnce(
+      {
+        url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/runs/upload`,
+        headers: {
+          Authorization: `Bearer ${expectedApiKey}`,
+          "Content-Type": "application/json",
+        },
+        matcher: (_url, { body }) => {
+          expect(body).toBe(undefined);
+          return true;
+        },
+      },
+      (): MockResponse => ({
+        body: {
+          upload_id: "MOCK_UPLOAD_ID",
+        },
+        headers: {
+          Location: uploadUrl,
+        },
+        status: 201,
+      })
+    );
+
+    let runRequest: CreateTestSuiteRunInlineRequest | null = null;
+    fetchMock.putOnce(
+      {
+        url: uploadUrl,
+        headers: {
+          "Content-Encoding": "gzip",
+          "Content-Type": "application/json",
+        },
+        matcher: uploadResultsMatcher(params, results),
+      },
+      (_url: string, { body }: MockRequest): MockResponse => {
+        runRequest = JSON.parse(
+          gunzipSync(body as string).toString()
+        ) as CreateTestSuiteRunInlineRequest;
+
+        return {
+          status: 200,
+        };
+      }
+    );
     fetchMock.postOnce(
       {
         url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/runs`,
@@ -809,18 +859,23 @@ const addFetchMockExpectations = (
           Authorization: `Bearer ${expectedApiKey}`,
           "Content-Type": "application/json",
         },
-        matcher: uploadResultsMatcher(params, results),
+        matcher: (_url, { body }) => {
+          const parsedBody = JSON.parse(
+            body as string
+          ) as CreateTestSuiteRunFromUploadRequest;
+          expect(parsedBody.upload_id).toBe("MOCK_UPLOAD_ID");
+          return true;
+        },
       },
-      (_url: string, { body }: MockRequest): MockResponse => {
+      (): MockResponse => {
+        expect(runRequest).not.toBeNull();
+        const parsedRequest = runRequest as CreateTestSuiteRunInlineRequest;
+
         if (failToUploadResults) {
           return {
             throws: new Error("mock request failure"),
           };
         }
-
-        const parsedBody = JSON.parse(
-          body as string
-        ) as CreateTestSuiteRunRequest;
 
         return {
           body: {
@@ -836,8 +891,8 @@ const addFetchMockExpectations = (
                   commit: expectedCommit,
                 }
               : {}),
-            start_time: parsedBody.start_time,
-            end_time: parsedBody.end_time,
+            start_time: parsedRequest.start_time,
+            end_time: parsedRequest.end_time,
             num_tests:
               results.failedTests +
               results.flakyTests +
