@@ -46,18 +46,11 @@ export type CreateTestSuiteRunInlineRequest = {
 export declare type CreateTestSuiteRunFromUploadRequest = {
   upload_id: string;
 };
-export type TestSuiteRunSummary = {
+export type TestSuiteRunPendingSummary = {
   run_id: string;
   suite_id: string;
   branch?: string;
   commit?: string;
-  start_time: string;
-  end_time: string;
-  num_tests: number;
-  num_pass: number;
-  num_fail: number;
-  num_flake: number;
-  num_quarantined: number;
 };
 export type CreateTestSuiteRunUploadUrlResponse = {
   upload_id: string;
@@ -107,7 +100,7 @@ export const createTestSuiteRun = async ({
   apiKey: string;
   clientDescription?: string;
   baseUrl?: string;
-}): Promise<TestSuiteRunSummary> => {
+}): Promise<TestSuiteRunPendingSummary> => {
   const requestJson = JSON.stringify(request);
   debug(`Creating test suite run: ${requestJson}`);
   const gzippedRequest = await promisify(gzip)(requestJson);
@@ -165,8 +158,8 @@ export const createTestSuiteRun = async ({
     }
   )
     .then(expectResponse(201, "201 Created"))
-    .then((res) => res.json() as Promise<TestSuiteRunSummary>)
-    .then((parsedResponse: TestSuiteRunSummary) => {
+    .then((res) => res.json() as Promise<TestSuiteRunPendingSummary>)
+    .then((parsedResponse: TestSuiteRunPendingSummary) => {
       debug(`Received response: ${JSON.stringify(parsedResponse)}`);
       return parsedResponse;
     });

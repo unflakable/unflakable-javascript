@@ -19,7 +19,7 @@ import {
   TestRunAttemptRecord,
   TestRunRecord,
   TestSuiteManifest,
-  TestSuiteRunSummary,
+  TestSuiteRunPendingSummary,
 } from "@unflakable/js-api";
 import simpleGit, { SimpleGit } from "simple-git";
 import type { Response as GitResponse, TaskOptions } from "simple-git";
@@ -902,7 +902,7 @@ const addFetchMockExpectations = (
             num_fail: results.failedSuites,
             num_flake: results.flakyTests,
             num_quarantined: results.quarantinedSuites,
-          } as TestSuiteRunSummary,
+          } as TestSuiteRunPendingSummary,
           status: 201,
         };
       }
