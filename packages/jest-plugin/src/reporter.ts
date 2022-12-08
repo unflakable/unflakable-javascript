@@ -40,7 +40,7 @@ import { specialChars } from "jest-util";
 
 import type { Config } from "@jest/types";
 import { getConsoleOutput } from "@jest/console";
-import simpleGit from "simple-git";
+import { simpleGit } from "simple-git";
 
 import chalk = require("chalk");
 import _debug = require("debug");
@@ -271,14 +271,14 @@ export default class UnflakableReporter extends BaseReporter {
           ) => void
         )(
           status +
-            " " +
-            chalk.dim(
-              test.title +
-                (test._unflakableIsQuarantined === true
-                  ? chalk.yellow(" [quarantined]")
-                  : "") +
-                time
-            ),
+          " " +
+          chalk.dim(
+            test.title +
+            (test._unflakableIsQuarantined === true
+              ? chalk.yellow(" [quarantined]")
+              : "") +
+            time
+          ),
           indentLevel
         );
       };

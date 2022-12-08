@@ -2081,7 +2081,7 @@ __metadata:
     exit: ^0.1.2
     jest-runner: ^25.1.0 || ^26.0.0 || ^27.0.0
     jest-util: ^25.1.0 || ^26.0.0 || ^27.0.0
-    simple-git: ^3.7.1
+    simple-git: ^3.15.1
   peerDependencies:
     "@jest/console": ^25.1.0 || ^26.0.0 || ^27.0.0
     "@jest/reporters": ^25.1.0 || ^26.0.0 || ^27.0.0
@@ -2862,6 +2862,18 @@ __metadata:
   dependencies:
     ms: ^2.1.1
   checksum: b3d8c5940799914d30314b7c3304a43305fd0715581a919dacb8b3176d024a782062368405b47491516d2091d6462d4d11f2f4974a405048094f8bfebfa3071c
+  languageName: node
+  linkType: hard
+
+"debug@npm:^4.3.4":
+  version: 4.3.4
+  resolution: "debug@npm:4.3.4"
+  dependencies:
+    ms: 2.1.2
+  peerDependenciesMeta:
+    supports-color:
+      optional: true
+  checksum: 3dbad3f94ea64f34431a9cbf0bafb61853eda57bff2880036153438f50fb5a84f27683ba0d8e5426bf41a8c6ff03879488120cf5b3a761e77953169c0600a708
   languageName: node
   linkType: hard
 
@@ -6056,14 +6068,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"simple-git@npm:^3.7.1":
-  version: 3.7.1
-  resolution: "simple-git@npm:3.7.1"
+"simple-git@npm:^3.15.1":
+  version: 3.15.1
+  resolution: "simple-git@npm:3.15.1"
   dependencies:
     "@kwsites/file-exists": ^1.1.1
     "@kwsites/promise-deferred": ^1.1.1
-    debug: ^4.3.3
-  checksum: df5361e892cadf73f0bfad2b34f3609809465c4ba1c8f3f95b2650e8a40c366c78a1a99c5e4f0eafc2acd33a85a9660d834690bb6331ef11bc1c064f526cd4a8
+    debug: ^4.3.4
+  checksum: 2b97c3ba3c0709eded408013336bf1822be4171d965f3ab45f5bfc05ec690f9e488e11280bec8e2faa05d3039c4769e9d8197040a48dc5cf21cc5c7fa22fe77f
   languageName: node
   linkType: hard
 

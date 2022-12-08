@@ -21,7 +21,7 @@ import {
   TestSuiteManifest,
   TestSuiteRunPendingSummary,
 } from "@unflakable/js-api";
-import simpleGit, { SimpleGit } from "simple-git";
+import { simpleGit, SimpleGit } from "simple-git";
 import type { Response as GitResponse, TaskOptions } from "simple-git";
 import deepEqual from "deep-equal";
 import * as cosmiconfig from "cosmiconfig";
