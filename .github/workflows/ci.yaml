@@ -20,6 +20,7 @@ jobs:
   check:
     name: Typecheck, lint, and audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v2
 
@@ -52,6 +53,7 @@ jobs:
   jest_integration_tests:
     name: "Jest Integration Tests: Jest ${{ matrix.jest }} + Node ${{ matrix.node }}"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
@@ -114,12 +116,8 @@ jobs:
 
       - run: yarn build
 
-      - name: Enable Unflakable dogfooding
-        run: |
-          echo "UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }}" >> $GITHUB_ENV
-        if: github.event.action != 'pull_request'
-
-      - working-directory: packages/jest-plugin/test/integration
+      - name: Test
+        working-directory: packages/jest-plugin/test/integration
         env:
           DEBUG: unflakable:*
         run: |
@@ -128,6 +126,7 @@ jobs:
           else
             export UNFLAKABLE_SUITE_ID=28UidZ8cSKjRe4g1xkd9EE8noDF
           fi
-          yarn test \
+          UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
+            yarn test \
             --reporters @unflakable/jest-plugin/dist/reporter \
             --runner @unflakable/jest-plugin/dist/runner
