@@ -124,8 +124,20 @@ export const integrationTestSuite = (runTests: () => void) => {
     (mockConfigExplorer.search as jest.Mock).mockClear();
     mockExit.mockClear();
 
-    const mockFetch = jest.requireMock<FetchMockSandbox>("node-fetch");
-    mockFetch.reset();
+    jest
+      .requireMock<FetchMockSandbox>("node-fetch")
+      .reset()
+      .catch((url, request) => {
+        throw new Error(
+          `Unexpected ${
+            request.method?.toUpperCase().toString() ?? "undefined"
+          } request to ${url} ${
+            request.body !== null && request.body !== undefined
+              ? `with body ${request.body.toString()}`
+              : "without body"
+          } and headers ${JSON.stringify(request.headers ?? {})}`
+        );
+      });
 
     // Don't propagate environment variables from the calling environment to the underlying tests,
     // which can lead to different results across environments and leak state between tests that

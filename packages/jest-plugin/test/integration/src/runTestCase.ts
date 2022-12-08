@@ -746,7 +746,7 @@ const addFetchMockExpectations = (
     failToUploadResults,
     quarantineFlake,
   } = params;
-  fetchMock.getOnce(
+  fetchMock.get(
     {
       url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/manifest`,
       headers: {
@@ -803,7 +803,10 @@ const addFetchMockExpectations = (
             ],
           } as TestSuiteManifest,
           status: 200,
-        }
+        },
+    {
+      repeat: failToFetchManifest ? 3 : 1,
+    }
   );
   if (expectResultsToBeUploaded) {
     const uploadUrl =
@@ -852,7 +855,7 @@ const addFetchMockExpectations = (
         };
       }
     );
-    fetchMock.postOnce(
+    fetchMock.post(
       {
         url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/runs`,
         headers: {
@@ -905,6 +908,9 @@ const addFetchMockExpectations = (
           } as TestSuiteRunPendingSummary,
           status: 201,
         };
+      },
+      {
+        repeat: failToUploadResults ? 3 : 1,
       }
     );
   }
@@ -1395,6 +1401,8 @@ export const runTestCase = async (
     process.stderr.write = originalStderrWrite;
   }
 
+  // There shouldn't be any unexpected mock fetch calls.
+  expect(fetchMock.calls("unmatched")).toHaveLength(0);
   expect(fetchMock).toBeDone();
 
   expect(results).toEqual(expectedResults);

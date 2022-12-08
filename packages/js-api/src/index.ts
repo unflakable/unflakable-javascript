@@ -1,11 +1,39 @@
 // Copyright (c) 2022 Developer Innovations, LLC
 
-import fetch, { Response } from "node-fetch";
+import nodeFetch, { RequestInit, Response } from "node-fetch";
 import _debug = require("debug");
 import { gzip } from "zlib";
 import { promisify } from "util";
+import retry from "async-retry";
 
 const debug = _debug("unflakable:api");
+
+const fetch = (url: string, init?: RequestInit): Promise<Response> => {
+  return retry(
+    () =>
+      nodeFetch(url, init).then((response) => {
+        if (response.status === 503) {
+          throw new Error(
+            `Server returned ${response.status} ${response.statusText}`
+          );
+        }
+        return response;
+      }),
+    {
+      // Retry after 100ms (see docs at https://github.com/tim-kos/node-retry).
+      minTimeout: 100,
+      maxTimeout: 100,
+      factor: 1,
+      onRetry: (error) => {
+        process.stderr.write(
+          `[unflakable] WARNING: Retrying request due to error: ${error.toString()}\n`
+        );
+      },
+      // Attempt the request 3 times total.
+      retries: 2,
+    }
+  );
+};
 
 const BASE_URL = "https://app.unflakable.com";
 
