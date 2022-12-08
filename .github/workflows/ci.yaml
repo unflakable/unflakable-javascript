@@ -44,7 +44,9 @@ jobs:
       - if: ${{ always() && steps.install.outcome == 'success' }}
         run: yarn prettier:check
 
-      - if: ${{ always() && steps.install.outcome == 'success' }}
+      # Don't block the build on audit failures except in the private fork. We still have Dependabot
+      # alerts enabled in the public repo, however.
+      - if: ${{ always() && github.repository == 'unflakable-javascript-private' && steps.install.outcome == 'success' }}
         run: yarn audit
 
   jest_integration_tests:
