@@ -158,8 +158,16 @@ export const integrationTestSuite = (runTests: () => void) => {
     process.stderr.write = originalStderrWrite;
   });
 
-  describe(`Jest ${jestPackage.version}`, () => {
-    describe(`Node ${process.version}`, () => {
+  const jestMinorVersion = jestPackage.version.match(/^[^.]+\.[^.]+/);
+  const nodeMajorVersion = process.version.match(/^[^.]+/);
+
+  describe(`Jest ${
+    jestMinorVersion !== null ? jestMinorVersion[0] : jestPackage.version
+  }`, () => {
+    // Only use Node major version for test name.
+    describe(`Node ${
+      nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
+    }`, () => {
       runTests();
     });
   });
