@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Developer Innovations, LLC
+// Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import type { SimpleGit } from "simple-git";
 import _debug = require("debug");

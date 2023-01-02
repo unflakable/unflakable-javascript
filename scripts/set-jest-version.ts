@@ -1,3 +1,5 @@
+// Copyright (c) 2022-2023 Developer Innovations, LLC
+
 import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";

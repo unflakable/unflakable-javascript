@@ -1,3 +1,5 @@
+// Copyright (c) 2022-2023 Developer Innovations, LLC
+
 module.exports = {
   env: {
     node: true,

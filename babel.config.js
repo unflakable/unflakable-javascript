@@ -1,3 +1,5 @@
+// Copyright (c) 2022-2023 Developer Innovations, LLC
+
 /* eslint-env node */
 module.exports = (api) => {
   api.cache.using(() => process.env.NODE_ENV);
@@ -8,15 +10,15 @@ module.exports = (api) => {
       // consumption by Jest during tests:
       ...(process.env.NODE_ENV === "test"
         ? [
-          [
-            "@babel/preset-env",
-            {
-              targets: {
-                node: "current",
+            [
+              "@babel/preset-env",
+              {
+                targets: {
+                  node: "current",
+                },
               },
-            },
-          ],
-        ]
+            ],
+          ]
         : []),
     ],
   };
