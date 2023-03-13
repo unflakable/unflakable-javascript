@@ -10,11 +10,14 @@
   "license": "MIT",
   "version": "0.2.0",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./dist/reporter": {
+      "types": "./dist/reporter.d.ts",
+      "default": "./dist/reporter.js"
     },
-    "./package.json": "./package.json"
+    "./dist/runner": {
+      "types": "./dist/runner.d.ts",
+      "default": "./dist/runner.js"
+    }
   },
   "files": [
     "README.md",
