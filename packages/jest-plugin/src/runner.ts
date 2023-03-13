@@ -2,7 +2,11 @@
 
 import * as path from "path";
 
-import type { AssertionResult, TestResult } from "@jest/test-result";
+import type {
+  AssertionResult,
+  SerializableError,
+  TestResult,
+} from "@jest/test-result";
 import {
   FAILED,
   getTestSuiteId,
@@ -327,6 +331,95 @@ class UnflakableRunner {
         })
       : onResult;
 
+    const runTests = (
+      globalConfig: Config.GlobalConfig,
+      tests: Array<Test>,
+      watcher: TestWatcher,
+      options: TestRunnerOptions
+    ): Promise<void> => {
+      const testRunner = new TestRunner(globalConfig, context ?? {});
+
+      // We have to give up on per-event type safety here to maintain compatibility with versions
+      // prior to 26.2.0.
+      type EventListener = (eventData: unknown) => void | Promise<void>;
+      type EventSubscriber = (
+        eventName: string,
+        listener: EventListener
+      ) => () => void;
+
+      // The event emitter interface was introduced in Jest 26.2.0 (see
+      // https://github.com/facebook/jest/pull/10227).
+      if ((testRunner as unknown as { on?: unknown }).on !== undefined) {
+        const eventEmittingTestRunner = testRunner as unknown as {
+          on: EventSubscriber;
+        };
+        eventEmittingTestRunner.on("test-file-start", (([test]: [Test]) =>
+          onStart(test)) as EventListener);
+        eventEmittingTestRunner.on("test-file-success", (([test, result]: [
+          Test,
+          TestResult
+        ]) => onResultImpl(test, result)) as EventListener);
+        eventEmittingTestRunner.on("test-file-failure", (([test, error]: [
+          Test,
+          SerializableError
+        ]) => onFailure(test, error)) as EventListener);
+
+        return testRunner.runTests.length === 6
+          ? // Jest prior to 28.0.0 expects the callback arguments (see
+            // https://github.com/facebook/jest/pull/12641).
+            (
+              testRunner.runTests as unknown as (
+                tests: Array<Test>,
+                watcher: TestWatcher,
+                onStart: OnTestStart | undefined,
+                onResult: OnTestSuccess | undefined,
+                onFailure: OnTestFailure | undefined,
+                options: TestRunnerOptions
+              ) => Promise<void>
+            )(
+              tests,
+              // FIXME(FLAKE-136): make this interact with the watcher in a sensible way (or error
+              // out explicitly).
+              watcher,
+              undefined,
+              undefined,
+              undefined,
+              options
+            )
+          : // Jest >= 28.0.0 no longer expects the callback arguments.
+            (
+              testRunner.runTests as unknown as (
+                tests: Array<Test>,
+                watcher: TestWatcher,
+                options: TestRunnerOptions
+              ) => Promise<void>
+            )(tests, watcher, options);
+      } else {
+        // Prior to Jest 26.2.0, use the legacy callback interface.
+        return (
+          testRunner.runTests as unknown as (
+            tests: Array<Test>,
+            watcher: TestWatcher,
+            onStart: OnTestStart | undefined,
+            onResult: OnTestSuccess | undefined,
+            onFailure: OnTestFailure | undefined,
+            options: TestRunnerOptions
+          ) => Promise<void>
+        )(
+          tests,
+          // FIXME(FLAKE-136): make this interact with the watcher in a sensible way (or error
+          // out explicitly).
+          watcher,
+          onStart,
+          // This gets called on unhandled exceptions, not on ordinary test failures. Don't
+          // quarantine these.
+          onResultImpl,
+          onFailure,
+          options
+        );
+      }
+    };
+
     if (
       manifest !== undefined &&
       manifest.quarantined_tests.length > 0 &&
@@ -389,19 +482,8 @@ class UnflakableRunner {
               ...globalConfig,
               testNamePattern,
             });
-            const testRunner = new TestRunner(
-              filteredGlobalConfig,
-              context ?? {}
-            );
             return promise.then(() =>
-              testRunner.runTests(
-                [test],
-                watcher,
-                onStart,
-                onResultImpl,
-                onFailure,
-                options
-              )
+              runTests(filteredGlobalConfig, [test], watcher, options)
             );
           } else {
             return promise;
@@ -415,33 +497,13 @@ class UnflakableRunner {
             debug(
               `Testing ${normalTestFiles.length} remaining file(s) with no quarantined tests`
             );
-            const testRunner = new TestRunner(globalConfig, context ?? {});
-            return testRunner.runTests(
-              normalTestFiles,
-              // FIXME(FLAKE-136): make this interact with the watcher in a sensible way (or error out
-              // explicitly).
-              watcher,
-              onStart,
-              onResultImpl,
-              onFailure,
-              options
-            );
+            return runTests(globalConfig, normalTestFiles, watcher, options);
           } else {
             return Promise.resolve();
           }
         });
     } else {
-      const testRunner = new TestRunner(globalConfig, context ?? {});
-      await testRunner.runTests(
-        tests,
-        watcher,
-        onStart,
-        onResultImpl,
-        // This gets called on unhandled exceptions, not on ordinary test failures. Don't
-        // quarantine these.
-        onFailure,
-        options
-      );
+      await runTests(globalConfig, tests, watcher, options);
     }
     return testFailures;
   }
