@@ -61,7 +61,9 @@ const jestStatusToUnflakableApi = (
     return "quarantined";
   }
 
-  switch (status) {
+  switch (status as Status | "focused") {
+    // Introduced in Jest 29.4 (see https://github.com/facebook/jest/pull/13700).
+    case "focused":
     case "passed":
       return "pass";
     case "failed":
@@ -78,13 +80,15 @@ const getIcon = (test: UnflakableAssertionResult): string => {
   if (test._unflakableIsQuarantined === true) {
     return chalk.yellow(specialChars.ICONS.failed);
   } else {
-    switch (test.status) {
+    switch (test.status as Status | "focused") {
       case "failed":
         return chalk.red(specialChars.ICONS.failed);
       case "pending":
         return chalk.yellow(specialChars.ICONS.pending);
       case "todo":
         return chalk.magenta(specialChars.ICONS.todo);
+      // Introduced in Jest 29.4 (see https://github.com/facebook/jest/pull/13700).
+      case "focused":
       case "passed":
       case "skipped":
       case "disabled":
