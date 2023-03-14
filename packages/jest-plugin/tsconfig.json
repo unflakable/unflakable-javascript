@@ -7,6 +7,8 @@
     "lib": ["ES2019"],
     // Avoids conflicting global definitions from, e.g., jasmine.
     "types": ["node", "jest"],
+    // Some versions of Jest (e.g., 28.0.0) have internally broken types.
+    "skipLibCheck": true,
     "sourceMap": true
   },
   "include": ["src/**/*.ts", "window.d.ts"]
