@@ -1621,7 +1621,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/console@npm:25.1.0 - 28, @jest/console@npm:^27.5.1":
+"@jest/console@npm:25.1.0 - 29, @jest/console@npm:^27.5.1":
   version: 27.5.1
   resolution: "@jest/console@npm:27.5.1"
   dependencies:
@@ -1713,7 +1713,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/reporters@npm:25.1.0 - 28, @jest/reporters@npm:^27.5.1":
+"@jest/reporters@npm:25.1.0 - 29, @jest/reporters@npm:^27.5.1":
   version: 27.5.1
   resolution: "@jest/reporters@npm:27.5.1"
   dependencies:
@@ -1762,7 +1762,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/test-result@npm:25.1.0 - 28, @jest/test-result@npm:^27.5.1":
+"@jest/test-result@npm:25.1.0 - 29, @jest/test-result@npm:^27.5.1":
   version: 27.5.1
   resolution: "@jest/test-result@npm:27.5.1"
   dependencies:
@@ -1809,7 +1809,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/types@npm:25.1.0 - 28, @jest/types@npm:^27.5.1":
+"@jest/types@npm:25.1.0 - 29, @jest/types@npm:^27.5.1":
   version: 27.5.1
   resolution: "@jest/types@npm:27.5.1"
   dependencies:
@@ -1975,11 +1975,11 @@ __metadata:
   linkType: hard
 
 "@sinonjs/commons@npm:^1.7.0":
-  version: 1.8.3
-  resolution: "@sinonjs/commons@npm:1.8.3"
+  version: 1.8.6
+  resolution: "@sinonjs/commons@npm:1.8.6"
   dependencies:
     type-detect: 4.0.8
-  checksum: 6159726db5ce6bf9f2297f8427f7ca5b3dff45b31e5cee23496f1fa6ef0bb4eab878b23fb2c5e6446381f6a66aba4968ef2fc255c1180d753d4b8c271636a2e5
+  checksum: 7d3f8c1e85f30cd4e83594fc19b7a657f14d49eb8d95a30095631ce15e906c869e0eff96c5b93dffea7490c00418b07f54582ba49c6560feb2a8c34c0b16832d
   languageName: node
   linkType: hard
 
@@ -2174,7 +2174,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jest@npm:25.1.0 - 28":
+"@types/jest@npm:25.1.0 - 29":
   version: 27.5.2
   resolution: "@types/jest@npm:27.5.2"
   dependencies:
@@ -2403,15 +2403,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@unflakable/jest-plugin@workspace:packages/jest-plugin"
   dependencies:
-    "@jest/console": 25.1.0 - 28
-    "@jest/reporters": 25.1.0 - 28
-    "@jest/test-result": 25.1.0 - 28
-    "@jest/types": 25.1.0 - 28
+    "@jest/console": 25.1.0 - 29
+    "@jest/reporters": 25.1.0 - 29
+    "@jest/test-result": 25.1.0 - 29
+    "@jest/types": 25.1.0 - 29
     "@types/chalk": ^2.2.0
     "@types/debug": ^4.1.7
     "@types/deep-equal": ^1.0.1
     "@types/exit": ^0.1.31
-    "@types/jest": 25.1.0 - 28
+    "@types/jest": 25.1.0 - 29
     "@unflakable/js-api": "workspace:^"
     chalk: ^3.0.0 || ^4.0.0
     cosmiconfig: ^7.0.1
@@ -2419,14 +2419,14 @@ __metadata:
     deep-equal: ^2.0.5
     escape-string-regexp: ^4.0.0
     exit: ^0.1.2
-    jest-runner: 25.1.0 - 28
-    jest-util: 25.1.0 - 28
+    jest-runner: 25.1.0 - 29
+    jest-util: 25.1.0 - 29
     simple-git: ^3.15.1
   peerDependencies:
-    "@jest/console": 25.1.0 - 28
-    "@jest/reporters": 25.1.0 - 28
-    jest-runner: 25.1.0 - 28
-    jest-util: 25.1.0 - 28
+    "@jest/console": 25.1.0 - 29
+    "@jest/reporters": 25.1.0 - 29
+    jest-runner: 25.1.0 - 29
+    jest-util: 25.1.0 - 29
   languageName: unknown
   linkType: soft
 
@@ -3125,7 +3125,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"convert-source-map@npm:^1.4.0, convert-source-map@npm:^1.6.0, convert-source-map@npm:^1.7.0":
+"convert-source-map@npm:^1.4.0":
+  version: 1.9.0
+  resolution: "convert-source-map@npm:1.9.0"
+  checksum: dc55a1f28ddd0e9485ef13565f8f756b342f9a46c4ae18b843fe3c30c675d058d6a4823eff86d472f187b176f0adf51ea7b69ea38be34be4a63cbbf91b0593c8
+  languageName: node
+  linkType: hard
+
+"convert-source-map@npm:^1.6.0, convert-source-map@npm:^1.7.0":
   version: 1.8.0
   resolution: "convert-source-map@npm:1.8.0"
   dependencies:
@@ -4842,7 +4849,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-each@npm:25.1.0 - 28, jest-each@npm:^27.5.1":
+"jest-each@npm:25.1.0 - 29, jest-each@npm:^27.5.1":
   version: 27.5.1
   resolution: "jest-each@npm:27.5.1"
   dependencies:
@@ -4928,8 +4935,8 @@ __metadata:
   dependencies:
     "@unflakable/jest-plugin": "workspace:^"
     "@unflakable/js-api": "workspace:^"
-    jest: 25.1.0 - 28
-    jest-each: 25.1.0 - 28
+    jest: 25.1.0 - 29
+    jest-each: 25.1.0 - 29
   languageName: unknown
   linkType: soft
 
@@ -4943,7 +4950,7 @@ __metadata:
     chalk: ^3.0.0 || ^4.0.0
     deep-equal: ^2.0.5
     fetch-mock-jest: ^1.5.1
-    jest: 25.1.0 - 28
+    jest: 25.1.0 - 29
     temp: ^0.9.4
   languageName: unknown
   linkType: soft
@@ -5082,7 +5089,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-runner@npm:25.1.0 - 28, jest-runner@npm:^27.5.1":
+"jest-runner@npm:25.1.0 - 29, jest-runner@npm:^27.5.1":
   version: 27.5.1
   resolution: "jest-runner@npm:27.5.1"
   dependencies:
@@ -5181,7 +5188,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-util@npm:25.1.0 - 28, jest-util@npm:^27.5.1":
+"jest-util@npm:25.1.0 - 29, jest-util@npm:^27.5.1":
   version: 27.5.1
   resolution: "jest-util@npm:27.5.1"
   dependencies:
@@ -5235,7 +5242,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest@npm:25.1.0 - 28":
+"jest@npm:25.1.0 - 29":
   version: 27.5.1
   resolution: "jest@npm:27.5.1"
   dependencies:
@@ -6362,9 +6369,9 @@ __metadata:
   linkType: hard
 
 "resolve.exports@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "resolve.exports@npm:1.1.0"
-  checksum: 52865af8edb088f6c7759a328584a5de6b226754f004b742523adcfe398cfbc4559515104bc2ae87b8e78b1e4de46c9baec400b3fb1f7d517b86d2d48a098a2d
+  version: 1.1.1
+  resolution: "resolve.exports@npm:1.1.1"
+  checksum: 485aa10082eb388a569d696e17ad7b16f4186efc97dd34eadd029d95b811f21ffee13b1b733198bb4584dbb3cb296aa6f141835221fb7613b9606b84f1386655
   languageName: node
   linkType: hard
 
@@ -6801,12 +6808,12 @@ __metadata:
   linkType: hard
 
 "supports-hyperlinks@npm:^2.0.0":
-  version: 2.2.0
-  resolution: "supports-hyperlinks@npm:2.2.0"
+  version: 2.3.0
+  resolution: "supports-hyperlinks@npm:2.3.0"
   dependencies:
     has-flag: ^4.0.0
     supports-color: ^7.0.0
-  checksum: aef04fb41f4a67f1bc128f7c3e88a81b6cf2794c800fccf137006efe5bafde281da3e42e72bf9206c2fcf42e6438f37e3a820a389214d0a88613ca1f2d36076a
+  checksum: 9ee0de3c8ce919d453511b2b1588a8205bd429d98af94a01df87411391010fe22ca463f268c84b2ce2abad019dfff8452aa02806eeb5c905a8d7ad5c4f4c52b8
   languageName: node
   linkType: hard
 

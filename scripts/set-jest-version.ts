@@ -36,14 +36,16 @@ const setYarnResolution = (descriptor: string, resolution: string) => {
 
 // The jest TS types aren't released very frequently and mostly correspond to major versions, so we
 // just install the latest available
-if (targetVersion.startsWith("28.")) {
-  setYarnResolution("@types/jest@npm:25.1.0 - 28", "28");
+if (targetVersion.startsWith("29.")) {
+  setYarnResolution("@types/jest@npm:25.1.0 - 29", "29");
+} else if (targetVersion.startsWith("28.")) {
+  setYarnResolution("@types/jest@npm:25.1.0 - 29", "28");
 } else if (targetVersion.startsWith("27.")) {
-  setYarnResolution("@types/jest@npm:25.1.0 - 28", "27");
+  setYarnResolution("@types/jest@npm:25.1.0 - 29", "27");
 } else if (targetVersion.startsWith("26.")) {
-  setYarnResolution("@types/jest@npm:25.1.0 - 28", "26");
+  setYarnResolution("@types/jest@npm:25.1.0 - 29", "26");
 } else if (targetVersion.startsWith("25.")) {
-  setYarnResolution("@types/jest@npm:25.1.0 - 28", "25");
+  setYarnResolution("@types/jest@npm:25.1.0 - 29", "25");
 } else {
   console.log(`ERROR: Unsupported jest version ${targetVersion}`);
   process.exit(1);

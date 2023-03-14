@@ -4,8 +4,8 @@
   "devDependencies": {
     "@unflakable/jest-plugin": "workspace:^",
     "@unflakable/js-api": "workspace:^",
-    "jest": "25.1.0 - 28",
-    "jest-each": "25.1.0 - 28"
+    "jest": "25.1.0 - 29",
+    "jest-each": "25.1.0 - 29"
   },
   "scripts": {
     "test": "jest",
