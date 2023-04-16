@@ -1395,7 +1395,7 @@ export const runTestCase = async (
     if (failToUploadResults) {
       await expect(runPromise).rejects.toThrow();
     } else {
-      await expect(runPromise).resolves.not.toThrow();
+      await runPromise;
     }
   } finally {
     process.stderr.write = originalStderrWrite;
