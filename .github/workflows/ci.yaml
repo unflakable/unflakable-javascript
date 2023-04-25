@@ -48,6 +48,17 @@ jobs:
       - if: ${{ always() && github.repository == 'unflakable-javascript-private' && steps.install.outcome == 'success' }}
         run: yarn audit
 
+      - uses: dorny/paths-filter@v2
+        id: affects_plugins
+        with:
+          filters: |
+            jest:
+              - packages/jest-plugin/**
+              - packages/js-api/**
+              - scripts/set-jest-version.ts
+    outputs:
+      affects_jest: ${{ steps.affects_plugins.outputs.jest }}
+
   jest_integration_tests:
     name: "Jest Integration Tests: Jest ${{ matrix.jest }} + Node ${{ matrix.node }}"
     runs-on: ubuntu-latest
@@ -55,6 +66,7 @@ jobs:
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_jest == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -120,10 +132,11 @@ jobs:
         if: ${{ startsWith(matrix.jest, '25.')  }}
         run: yarn set resolution "chalk@npm:^3.0.0 || ^4.0.0" 3.0
 
-      - run: yarn build
+      - run: |
+          yarn workspace @unflakable/js-api build
+          yarn workspace @unflakable/jest-plugin build
 
       - name: Test
-        working-directory: packages/jest-plugin/test/integration
         env:
           DEBUG: unflakable:*
         run: |
@@ -133,6 +146,6 @@ jobs:
             export UNFLAKABLE_SUITE_ID=28UidZ8cSKjRe4g1xkd9EE8noDF
           fi
           UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
-            yarn test \
+            yarn workspace jest-integration test \
             --reporters @unflakable/jest-plugin/dist/reporter \
             --runner @unflakable/jest-plugin/dist/runner
