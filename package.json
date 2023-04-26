@@ -22,7 +22,7 @@
     "build:plugins": "yarn workspace @unflakable/js-api build && yarn workspace @unflakable/jest-plugin build",
     "typecheck:scripts": "tsc --noEmit scripts/**/*.ts",
     "typecheck:tests": "yarn workspace jest-integration typecheck && yarn workspace jest-integration-input typecheck",
-    "lint": "eslint packages/**/src/*.{ts,js} scripts/**/*.{ts,js}",
+    "lint": "eslint packages/**/src/**/*.{ts,js} scripts/**/*.{ts,js}",
     "prettier": "prettier --write packages/**/src/*.{ts,js}",
     "prettier:check": "prettier --check packages/**/src/*.{ts,js}",
     "publish": "yarn workspace @unflakable/js-api npm publish --access public && yarn workspace @unflakable/jest-plugin npm publish --access public",

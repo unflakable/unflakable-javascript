@@ -51,16 +51,12 @@ module.exports = {
       // merge upstream changes.
       files: ["packages/jest-plugin/src/vendored/**/*.ts"],
       rules: {
+        "@typescript-eslint/no-inferrable-types": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-var-requires": "off",
         "@typescript-eslint/restrict-plus-operands": "off",
         "@typescript-eslint/strict-boolean-expressions": "off",
         "@typescript-eslint/unbound-method": "off",
-      },
-    },
-    {
-      files: ["**/*.test.ts"],
-      rules: {
-        // Allow tests to call require() since that's needed for some mocking.
-        "@typescript-eslint/no-var-requires": "off",
       },
     },
   ],
