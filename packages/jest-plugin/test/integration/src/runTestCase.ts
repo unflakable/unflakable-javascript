@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import chalk from "chalk";
-import temp from "temp";
+import * as temp from "temp";
 import {
   FetchMockSandbox,
   MockCall,
@@ -26,8 +26,8 @@ import type { Response as GitResponse, TaskOptions } from "simple-git";
 import deepEqual from "deep-equal";
 import * as cosmiconfig from "cosmiconfig";
 import { CosmiconfigResult } from "cosmiconfig/dist/types";
-import { UnflakableConfig } from "../../../src/types";
 import { gunzipSync } from "zlib";
+import { UnflakableConfig } from "@unflakable/plugins-common";
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-jest-plugin/(?:[-0-9.]|alpha|beta)+ \\(Jest [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"

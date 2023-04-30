@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import type { SimpleGit } from "simple-git";
-import _debug = require("debug");
+import { debug as _debug } from "debug";
 
 const debug = _debug("unflakable:git");
 

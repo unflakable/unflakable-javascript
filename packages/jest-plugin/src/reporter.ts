@@ -1,7 +1,6 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import * as path from "path";
-//
 import type {
   AggregatedResult,
   AssertionResult,
@@ -15,14 +14,7 @@ import {
   Test,
   VerboseReporter,
 } from "@jest/reporters";
-import {
-  FAILED,
-  getTestSuiteId,
-  groupBy,
-  loadConfig,
-  testKey,
-  USER_AGENT,
-} from "./utils";
+import { FAILED, groupBy, testKey, USER_AGENT } from "./utils";
 import {
   TestAttemptResult,
   TestRunRecord,
@@ -33,21 +25,19 @@ import {
 import {
   UnflakableAggregatedResult,
   UnflakableAssertionResult,
-  UnflakableConfig,
   UnflakableTestResult,
 } from "./types";
 import { specialChars } from "jest-util";
-
 import type { Config } from "@jest/types";
 import { getConsoleOutput } from "@jest/console";
 import { simpleGit } from "simple-git";
-
-import chalk = require("chalk");
-import _debug = require("debug");
+import chalk from "chalk";
+import { debug as _debug } from "debug";
 import SummaryReporter from "./vendored/SummaryReporter";
 import { getResultHeader } from "./vendored/getResultHeader";
 import { formatTime } from "./vendored/formatTime";
 import { getCurrentGitBranch, getCurrentGitCommit } from "./git";
+import { loadConfigSync, UnflakableConfig } from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:reporter");
 
@@ -223,7 +213,7 @@ export default class UnflakableReporter extends BaseReporter {
   constructor(globalConfig: Config.GlobalConfig) {
     super();
     this.cwd = process.cwd();
-    this.unflakableConfig = loadConfig(globalConfig.rootDir);
+    this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
 
     if (
       process.env.UNFLAKABLE_API_KEY !== undefined &&
@@ -427,7 +417,7 @@ export default class UnflakableReporter extends BaseReporter {
     aggregatedResults: AggregatedResult,
     unflakableConfig: UnflakableConfig
   ): Promise<void> {
-    const testSuiteId = getTestSuiteId(unflakableConfig);
+    const testSuiteId = unflakableConfig.testSuiteId;
     const results = Object.entries(
       groupBy(
         aggregatedResults.testResults,

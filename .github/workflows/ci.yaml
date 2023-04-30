@@ -53,8 +53,12 @@ jobs:
         with:
           filters: |
             jest:
+              - package.json
+              - tsconfig.json
+              - .github/workflows/ci.yaml
               - packages/jest-plugin/**
               - packages/js-api/**
+              - packages/plugins-common/**
               - scripts/set-jest-version.ts
     outputs:
       affects_jest: ${{ steps.affects_plugins.outputs.jest }}
@@ -132,9 +136,7 @@ jobs:
         if: ${{ startsWith(matrix.jest, '25.')  }}
         run: yarn set resolution "chalk@npm:^3.0.0 || ^4.0.0" 3.0
 
-      - run: |
-          yarn workspace @unflakable/js-api build
-          yarn workspace @unflakable/jest-plugin build
+      - run: yarn build:plugins
 
       - name: Test
         env:

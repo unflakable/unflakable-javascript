@@ -31,8 +31,8 @@ All modifications to the above referenced file are copyrighted and licensed unde
 forth in the LICENSE file at the root of this repository.
 */
 
-import chalk = require("chalk");
-import type {AggregatedResult, SnapshotSummary} from "@jest/test-result";
+import chalk from "chalk";
+import type { AggregatedResult, SnapshotSummary } from "@jest/test-result";
 import type { Config } from "@jest/types";
 import { testPathPatternToRegExp } from "jest-util";
 import { BaseReporter, ReporterOnStartOptions } from "@jest/reporters";

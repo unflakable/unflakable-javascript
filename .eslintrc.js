@@ -47,4 +47,10 @@ module.exports = {
     ],
     "@typescript-eslint/switch-exhaustiveness-check": ["error"],
   },
+  settings: {
+    "import/resolver": {
+      typescript: true,
+      node: true,
+    },
+  },
 };

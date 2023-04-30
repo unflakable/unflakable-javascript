@@ -1,20 +1,12 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import * as path from "path";
-
 import type {
   AssertionResult,
   SerializableError,
   TestResult,
 } from "@jest/test-result";
-import {
-  FAILED,
-  getTestSuiteId,
-  groupBy,
-  loadConfig,
-  testKey,
-  USER_AGENT,
-} from "./utils";
+import { FAILED, groupBy, testKey, USER_AGENT } from "./utils";
 import TestRunner, {
   OnTestFailure,
   OnTestStart,
@@ -29,19 +21,17 @@ import {
   getTestSuiteManifest,
   TEST_NAME_ENTRY_MAX_LENGTH,
 } from "@unflakable/js-api";
-import {
-  QuarantineMode,
-  UnflakableAssertionResult,
-  UnflakableConfig,
-  UnflakableTestResult,
-} from "./types";
-
+import { UnflakableAssertionResult, UnflakableTestResult } from "./types";
 import type { Config } from "@jest/types";
 import chalk from "chalk";
 import escapeStringRegexp from "escape-string-regexp";
-
-import _debug = require("debug");
-import deepEqual = require("deep-equal");
+import { debug as _debug } from "debug";
+import deepEqual from "deep-equal";
+import {
+  loadConfigSync,
+  QuarantineMode,
+  UnflakableConfig,
+} from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:runner");
 
@@ -164,10 +154,10 @@ class UnflakableRunner {
 
   constructor(globalConfig: Config.GlobalConfig, context?: TestRunnerContext) {
     this.cwd = process.cwd();
-    this.unflakableConfig = loadConfig(globalConfig.rootDir);
+    this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
 
     const testSuiteId = this.unflakableConfig.enabled
-      ? getTestSuiteId(this.unflakableConfig)
+      ? this.unflakableConfig.testSuiteId
       : "";
 
     if (
@@ -509,4 +499,4 @@ class UnflakableRunner {
   }
 }
 
-export = UnflakableRunner;
+export default UnflakableRunner;

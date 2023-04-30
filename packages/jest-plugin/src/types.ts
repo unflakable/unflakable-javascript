@@ -6,18 +6,6 @@ import type {
   TestResult,
 } from "@jest/test-result";
 
-export type QuarantineMode = "no_quarantine" | "skip_tests" | "ignore_failures";
-
-export type UnflakableConfig = {
-  apiBaseUrl: string | undefined;
-  enabled: boolean;
-  failureRetries: number;
-  gitAutoDetect: boolean;
-  quarantineMode: QuarantineMode;
-  testSuiteId: string | undefined;
-  uploadResults: boolean;
-};
-
 export type UnflakableAssertionResult = AssertionResult & {
   _unflakableIsQuarantined?: boolean;
 };

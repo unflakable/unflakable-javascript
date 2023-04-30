@@ -1,0 +1,23 @@
+{
+  "name": "@unflakable/plugins-common",
+  "description": "Library code shared by the Unflakable JavaScript plugins",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unflakable/unflakable-javascript.git"
+  },
+  "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
+  "homepage": "https://unflakable.com",
+  "license": "MIT",
+  "version": "0.1.0",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "cosmiconfig": "^7.0.1",
+    "debug": "^4.3.3"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch"
+  }
+}

@@ -3,6 +3,10 @@
   "compilerOptions": {
     "outDir": "dist/",
     "declaration": true,
+    // Required by Rollup.
+    "module": "esnext",
+    // Ensure Rollup build fails if there are type errors.
+    "noEmitOnError": true,
     // Removes DOM types.
     "lib": ["ES2019"],
     // Avoids conflicting global definitions from, e.g., jasmine.
