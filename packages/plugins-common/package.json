@@ -14,7 +14,8 @@
   "types": "./dist/index.d.ts",
   "dependencies": {
     "cosmiconfig": "^7.0.1",
-    "debug": "^4.3.3"
+    "debug": "^4.3.3",
+    "simple-git": "^3.16.0"
   },
   "scripts": {
     "build": "tsc --build",

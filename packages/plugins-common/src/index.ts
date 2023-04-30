@@ -3,8 +3,11 @@
 import { cosmiconfigSync } from "cosmiconfig";
 import { debug as _debug } from "debug";
 import { CosmiconfigResult } from "cosmiconfig/dist/types";
+import { autoDetectGit } from "./git";
 
 const debug = _debug("unflakable:plugins-common");
+
+export { autoDetectGit };
 
 export type QuarantineMode = "no_quarantine" | "skip_tests" | "ignore_failures";
 

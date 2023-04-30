@@ -2,10 +2,11 @@
 
 import type { SimpleGit } from "simple-git";
 import { debug as _debug } from "debug";
+import { simpleGit } from "simple-git";
 
 const debug = _debug("unflakable:git");
 
-export const getCurrentGitBranch = async (
+const getCurrentGitBranch = async (
   git: SimpleGit,
   commitSha: string
 ): Promise<string | undefined> => {
@@ -56,5 +57,41 @@ export const getCurrentGitBranch = async (
   return git.revparse(["--abbrev-ref", matchingRefs[0].refName]);
 };
 
-export const getCurrentGitCommit = (git: SimpleGit): Promise<string> =>
+const getCurrentGitCommit = (git: SimpleGit): Promise<string> =>
   git.revparse("HEAD");
+
+export const autoDetectGit = async (
+  log: (message: string) => void
+): Promise<{
+  branch: string | undefined;
+  commit: string | undefined;
+}> => {
+  try {
+    const git = simpleGit();
+    if (await git.checkIsRepo()) {
+      const commit = await getCurrentGitCommit(git);
+      const branch = await getCurrentGitBranch(git, commit);
+
+      return {
+        branch,
+        commit,
+      };
+    }
+  } catch (e) {
+    log(
+      `WARNING: Unflakable failed to auto-detect current git branch and commit: ${
+        e as string
+      }`
+    );
+    log(
+      "HINT: set the UNFLAKABLE_BRANCH and UNFLAKABLE_COMMIT environment variables or " +
+        "disable git auto-detection by setting `gitAutoDetect` to `false` in the " +
+        "Unflakable config file."
+    );
+  }
+
+  return {
+    branch: undefined,
+    commit: undefined,
+  };
+};

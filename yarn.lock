@@ -2291,7 +2291,6 @@ __metadata:
     exit: ^0.1.2
     jest-runner: 25.1.0 - 29
     jest-util: 25.1.0 - 29
-    simple-git: ^3.16.0
   peerDependencies:
     "@jest/console": 25.1.0 - 29
     "@jest/reporters": 25.1.0 - 29
@@ -2317,6 +2316,7 @@ __metadata:
   dependencies:
     cosmiconfig: ^7.0.1
     debug: ^4.3.3
+    simple-git: ^3.16.0
   languageName: unknown
   linkType: soft
 

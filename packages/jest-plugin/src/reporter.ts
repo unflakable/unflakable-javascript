@@ -30,14 +30,16 @@ import {
 import { specialChars } from "jest-util";
 import type { Config } from "@jest/types";
 import { getConsoleOutput } from "@jest/console";
-import { simpleGit } from "simple-git";
 import chalk from "chalk";
 import { debug as _debug } from "debug";
 import SummaryReporter from "./vendored/SummaryReporter";
 import { getResultHeader } from "./vendored/getResultHeader";
 import { formatTime } from "./vendored/formatTime";
-import { getCurrentGitBranch, getCurrentGitCommit } from "./git";
-import { loadConfigSync, UnflakableConfig } from "@unflakable/plugins-common";
+import {
+  autoDetectGit,
+  loadConfigSync,
+  UnflakableConfig,
+} from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:reporter");
 
@@ -497,29 +499,15 @@ export default class UnflakableReporter extends BaseReporter {
         commit === undefined ||
         commit.length === 0)
     ) {
-      try {
-        const git = simpleGit();
-        if (await git.checkIsRepo()) {
-          const gitCommit = await getCurrentGitCommit(git);
-          if (commit === undefined || commit.length === 0) {
-            commit = gitCommit;
-          }
+      const { branch: gitBranch, commit: gitCommit } = await autoDetectGit(
+        this.log.bind(this)
+      );
 
-          if (branch === undefined || branch.length === 0) {
-            branch = await getCurrentGitBranch(git, gitCommit);
-          }
-        }
-      } catch (e) {
-        this.log(
-          `WARNING: Unflakable failed to auto-detect current git branch and commit: ${
-            e as string
-          }`
-        );
-        this.log(
-          "HINT: set the UNFLAKABLE_BRANCH and UNFLAKABLE_COMMIT environment variables or " +
-            "disable git auto-detection by setting `gitAutoDetect` to `false` in the " +
-            "Unflakable config file."
-        );
+      if (branch === undefined || branch.length === 0) {
+        branch = gitBranch;
+      }
+      if (commit === undefined || commit.length === 0) {
+        commit = gitCommit;
       }
     }
 

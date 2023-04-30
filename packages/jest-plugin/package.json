@@ -30,8 +30,7 @@
     "cosmiconfig": "^7.0.1",
     "debug": "^4.3.3",
     "deep-equal": "^2.0.5",
-    "escape-string-regexp": "^4.0.0",
-    "simple-git": "^3.16.0"
+    "escape-string-regexp": "^4.0.0"
   },
   "devDependencies": {
     "@jest/console": "25.1.0 - 29",
