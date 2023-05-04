@@ -51,6 +51,10 @@ jobs:
       - uses: dorny/paths-filter@v2
         id: affects_plugins
         with:
+          # Treat all branches as long-lived so that the diff is based on the previous push on the
+          # current branch, rather than the default branch. This will print a warning on PRs since
+          # it's ignored for PR events, but that's fine.
+          base: ${{ github.ref }}
           filters: |
             jest:
               - package.json
