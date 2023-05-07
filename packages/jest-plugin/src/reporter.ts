@@ -252,7 +252,7 @@ export default class UnflakableReporter extends BaseReporter {
       verboseReporter._logTest = (
         test: UnflakableAssertionResult,
         indentLevel: number
-      ) => {
+      ): void => {
         const status = getIcon(test);
         const duration = test.duration ?? 0;
         const time =
@@ -287,7 +287,7 @@ export default class UnflakableReporter extends BaseReporter {
       _testPath: unknown,
       config: Config.ProjectConfig,
       result: UnflakableTestResult
-    ) => {
+    ): void => {
       const resultHeader = getResultHeader(result, globalConfig, config);
 
       // getResultHeader() includes optional functionality such as printing memory usage and perf

@@ -90,7 +90,7 @@ export default class SummaryReporter extends BaseReporter {
   // in Node.js 0.10 and still persists in Node.js 6.7+.
   // Let's print the test failure summary character by character which is safer
   // when hundreds of tests are failing.
-  private _write(string: string) {
+  private _write(string: string): void {
     for (let i = 0; i < string.length; i++) {
       process.stderr.write(string.charAt(i));
     }
@@ -149,7 +149,7 @@ export default class SummaryReporter extends BaseReporter {
   private _printSnapshotSummary(
     snapshots: SnapshotSummary,
     globalConfig: Config.GlobalConfig
-  ) {
+  ): void {
     if (
       snapshots.added ||
       snapshots.filesRemoved ||
@@ -192,7 +192,7 @@ export default class SummaryReporter extends BaseReporter {
   private _printSummary(
     aggregatedResults: AggregatedResult,
     globalConfig: Config.GlobalConfig
-  ) {
+  ): void {
     // If there were any failing tests and there was a large number of tests
     // executed, re-print the failing results at the end of execution output.
     const failedTests = aggregatedResults.numFailedTests;
@@ -220,8 +220,8 @@ export default class SummaryReporter extends BaseReporter {
   private _getTestSummary(
     contexts: Set<unknown> | undefined,
     globalConfig: Config.GlobalConfig
-  ) {
-    const getMatchingTestsInfo = () => {
+  ): string {
+    const getMatchingTestsInfo = (): string => {
       const prefix = globalConfig.findRelatedTests
         ? " related to files matching "
         : " matching ";

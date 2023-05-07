@@ -19,7 +19,7 @@ type PackageSpec = {
 };
 type Lockfile = { [key in string]: PackageSpec };
 
-const setYarnResolution = (descriptor: string, resolution: string) => {
+const setYarnResolution = (descriptor: string, resolution: string): void => {
   console.log(`Setting yarn resolution \`${descriptor}\` to ${resolution}`);
 
   const outcome = spawnSync(

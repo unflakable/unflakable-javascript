@@ -35,7 +35,7 @@ import {
 
 const debug = _debug("unflakable:runner");
 
-const printManifestError = (e: Error) => {
+const printManifestError = (e: Error): void => {
   process.stderr.write(
     chalk.stderr.red(
       `ERROR: Failed to get Unflakable manifest: ${e.toString()}\n`

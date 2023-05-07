@@ -7,7 +7,7 @@ import type { OptionsSync } from "cosmiconfig";
 import { FetchMockSandbox, MockCall } from "fetch-mock";
 import jestPackage from "jest/package.json";
 
-const throwUnimplemented = () => {
+const throwUnimplemented = (): never => {
   throw new Error("unimplemented");
 };
 
@@ -119,7 +119,7 @@ export const integrationTest = async (testCase: TestCase): Promise<void> => {
   );
 };
 
-export const integrationTestSuite = (runTests: () => void) => {
+export const integrationTestSuite = (runTests: () => void): void => {
   beforeEach(() => {
     (mockConfigExplorer.search as jest.Mock).mockClear();
     mockExit.mockClear();

@@ -84,7 +84,7 @@ export type CreateTestSuiteRunUploadUrlResponse = {
   upload_id: string;
 };
 
-const userAgent = (clientDescription?: string) =>
+const userAgent = (clientDescription?: string): string =>
   `unflakable-js-api/${JS_API_VERSION}${
     clientDescription !== undefined ? ` ${clientDescription}` : ""
   }`;
@@ -95,7 +95,7 @@ const requestHeaders = ({
 }: {
   apiKey: string;
   clientDescription?: string;
-}) => ({
+}): { [key: string]: string } => ({
   Authorization: "Bearer " + apiKey,
   "User-Agent": userAgent(clientDescription),
 });

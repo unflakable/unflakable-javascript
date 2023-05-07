@@ -49,7 +49,14 @@ const getValuesCurrentTestCases = (
     test: Test;
     testCaseResult: UnflakableAssertionResult;
   }[] = []
-) => {
+): {
+  numFailingTests: number;
+  numPassingTests: number;
+  numPendingTests: number;
+  numQuarantinedTests: number;
+  numTodoTests: number;
+  numTotalTests: number;
+} => {
   let numFailingTests = 0;
   let numPassingTests = 0;
   let numPendingTests = 0;
@@ -90,7 +97,11 @@ const getValuesCurrentTestCases = (
   };
 };
 
-const renderTime = (runTime: number, estimatedTime: number, width: number) => {
+const renderTime = (
+  runTime: number,
+  estimatedTime: number,
+  width: number
+): string => {
   // If we are more than one second over the estimated time, highlight it.
   const renderedTime =
     estimatedTime > 0 && runTime >= estimatedTime + 1

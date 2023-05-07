@@ -27,6 +27,8 @@ module.exports = {
     "no-restricted-syntax": ["error", "SequenceExpression"],
     "prefer-const": ["error", { destructuring: "all" }],
     "require-await": ["error"],
+    "@typescript-eslint/explicit-function-return-type": ["error"],
+    "@typescript-eslint/explicit-module-boundary-types": ["error"],
     "@typescript-eslint/no-unused-expressions": ["error"],
     "@typescript-eslint/no-unused-vars": [
       "error",

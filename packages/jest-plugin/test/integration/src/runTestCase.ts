@@ -127,14 +127,14 @@ const PASS =
   "\u001b[0m\u001b[7m\u001b[1m\u001b[32m PASS \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
 const QUARANTINED =
   "\u001b[0m\u001b[7m\u001b[1m\u001b[33m QUARANTINED \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
-const formatTestFilename = (path: string, filename: string) =>
+const formatTestFilename = (path: string, filename: string): string =>
   `\u001b[2m${path}\u001b[22m\u001b[1m${filename}\u001b[22m`;
 
 const testResultRegexMatch = (
   result: TestAttemptResult | "skipped",
   testName: string,
   indent?: number
-) =>
+): RegExp =>
   new RegExp(
     `^${" ".repeat(indent ?? 4)}${escapeStringRegexp(
       result === "pass"
@@ -734,7 +734,7 @@ const addFetchMockExpectations = (
   params: TestCaseParams,
   results: ResultCounts,
   fetchMock: jest.MockInstance<Response, MockCall> & FetchMockSandbox
-) => {
+): void => {
   const {
     expectedApiKey,
     expectedBranch,
@@ -935,7 +935,7 @@ const verifyOutput = (
   }: TestCaseParams,
   stderrLines: (Uint8Array | string)[],
   results: ResultCounts
-) => {
+): void => {
   // Make sure expected output is present and chalk-formatted correctly.
 
   /* eslint-disable @typescript-eslint/unbound-method */
