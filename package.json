@@ -1,5 +1,5 @@
 {
-  "packageManager": "yarn@3.2.0",
+  "packageManager": "yarn@3.5.1",
   "private": true,
   "devDependencies": {
     "@babel/core": "^7.21.5",
