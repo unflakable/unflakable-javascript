@@ -94,6 +94,7 @@ integrationTestSuite(() => {
           quarantineMode: "skip_tests",
         },
         expectQuarantinedTestsToBeSkipped: true,
+        expectResultsToBeUploaded: false,
         skipFailures: true,
         testNamePattern: "should be quarantined",
       },

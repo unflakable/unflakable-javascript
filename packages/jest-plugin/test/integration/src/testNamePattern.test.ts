@@ -32,6 +32,7 @@ integrationTestSuite(() => {
   it("use --testNamePattern with no matches", () =>
     integrationTest({
       params: {
+        expectResultsToBeUploaded: false,
         skipFailures: true,
         testNamePattern: "no matches",
       },

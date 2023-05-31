@@ -453,6 +453,11 @@ export default class UnflakableReporter extends BaseReporter {
         .filter((runRecord) => runRecord.attempts.length > 0)
     );
 
+    if (results.length === 0) {
+      debug("No results to report to Unflakable");
+      return;
+    }
+
     let branch = branchOverride.value,
       commit = commitOverride.value;
 
