@@ -5,7 +5,5 @@
     // Some versions of Jest (e.g., 28.0.0) have internally broken types.
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["jest.config.js", "src"]
 }

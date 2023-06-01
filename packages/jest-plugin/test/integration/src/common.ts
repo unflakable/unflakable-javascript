@@ -144,6 +144,7 @@ export const integrationTestSuite = (runTests: () => void): void => {
     // manipulate the environment.
     process.env = {
       NODE_ENV: "test",
+      FORCE_COLOR: "3",
     };
 
     let elapsedMs = 0;

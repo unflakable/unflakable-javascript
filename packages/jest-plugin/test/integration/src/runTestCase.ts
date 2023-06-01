@@ -1,6 +1,5 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
-import chalk from "chalk";
 import * as temp from "temp";
 import {
   FetchMockSandbox,
@@ -1290,22 +1289,6 @@ export const runTestCase = async (
     }
   );
 
-  // Force color even if running in CI that doesn't support it (since we want to be sure that our
-  // output uses the expected colors).
-  chalk.level = 3;
-  chalk.supportsColor = {
-    level: 3,
-    hasBasic: true,
-    has256: true,
-    has16m: true,
-  };
-  chalk.stderr.level = 3;
-  chalk.stderr.supportsColor = {
-    level: 3,
-    hasBasic: true,
-    has256: true,
-    has16m: true,
-  };
   mockSimpleGit(git);
 
   const results = countResults(params);

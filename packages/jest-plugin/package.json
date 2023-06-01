@@ -27,6 +27,7 @@
   ],
   "dependencies": {
     "@unflakable/js-api": "workspace:^",
+    "chalk": "^3.0.0 || ^4.0.0",
     "cosmiconfig": "^7.0.1",
     "debug": "^4.3.3",
     "deep-equal": "^2.0.5",
@@ -48,7 +49,6 @@
     "@types/exit": "^0.1.31",
     "@types/jest": "25.1.0 - 29",
     "@unflakable/plugins-common": "workspace:^",
-    "chalk": "^3.0.0 || ^4.0.0",
     "exit": "^0.1.2",
     "jest-runner": "25.1.0 - 29",
     "jest-util": "25.1.0 - 29",
