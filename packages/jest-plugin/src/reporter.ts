@@ -53,6 +53,7 @@ const jestStatusToUnflakableApi = (
     return "quarantined";
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   switch (status as Status | "focused") {
     // Introduced in Jest 29.4 (see https://github.com/facebook/jest/pull/13700).
     case "focused":
@@ -72,6 +73,7 @@ const getIcon = (test: UnflakableAssertionResult): string => {
   if (test._unflakableIsQuarantined === true) {
     return chalk.yellow(specialChars.ICONS.failed);
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     switch (test.status as Status | "focused") {
       case "failed":
         return chalk.red(specialChars.ICONS.failed);
