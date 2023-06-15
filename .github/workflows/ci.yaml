@@ -79,9 +79,9 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - 14
           - 16
           - 18
+          - 20
         jest:
           - "29.5"
           - "29.4"

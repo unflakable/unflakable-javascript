@@ -29,7 +29,7 @@ complete usage instructions.
 This plugin maintains compatibility with the Jest and Node.js versions listed below:
 
 [![25.1.0+ | 26.0.0+ | 27.0.0+ | 28.0.0+ | 29.0.0+](https://img.shields.io/badge/Jest-25.1.0%2B%20%7C%2026.0.0%2B%20%7C%2027.0.0%2B%20%7C%2028.0.0%2B%20%7C%2029.0.0%2B-C21325?logo=jest&labelColor=white&logoColor=C21325&style=flat)](https://jestjs.io)
-[![14 | 16 | 18](https://img.shields.io/badge/Node.js-14%20%7C%2016%20%7C%2018-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat)](https://nodejs.org)
+[![16 | 18 | 20](https://img.shields.io/badge/Node.js-16%20%7C%2018%20%7C%2020-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat)](https://nodejs.org)
 
 ## Contributing
 
