@@ -17,31 +17,24 @@ import TestRunner, {
   TestWatcher,
 } from "jest-runner";
 import {
-  TestSuiteManifest,
-  getTestSuiteManifest,
   TEST_NAME_ENTRY_MAX_LENGTH,
+  TestSuiteManifest,
 } from "@unflakable/js-api";
 import { UnflakableAssertionResult, UnflakableTestResult } from "./types";
 import type { Config } from "@jest/types";
 import chalk from "chalk";
 import escapeStringRegexp from "escape-string-regexp";
 import { debug as _debug } from "debug";
-import deepEqual from "deep-equal";
 import {
+  getTestSuiteManifest,
+  isTestQuarantined,
+  loadApiKey,
   loadConfigSync,
   QuarantineMode,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:runner");
-
-const printManifestError = (e: Error): void => {
-  process.stderr.write(
-    chalk.stderr.red(
-      `ERROR: Failed to get Unflakable manifest: ${e.toString()}\n`
-    ) + chalk.stderr.yellow.bold("Test failures will NOT be quarantined.\n")
-  );
-};
 
 type TestFailure = { test: Test; testResult: TestResult };
 
@@ -75,20 +68,7 @@ const wrapOnResult =
               "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
             );
           } else if (
-            manifest.quarantined_tests.some(
-              (quarantinedTest) =>
-                deepEqual(
-                  quarantinedTest.name,
-                  testKey({
-                    ...assertionResult,
-                    // See explanation below.
-                    title: assertionResult.title.substring(
-                      0,
-                      TEST_NAME_ENTRY_MAX_LENGTH
-                    ),
-                  })
-                ) && quarantinedTest.filename === testFilename
-            )
+            isTestQuarantined(manifest, testFilename, testKey(assertionResult))
           ) {
             debug(
               `Quarantining failed test ${JSON.stringify(
@@ -160,30 +140,15 @@ class UnflakableRunner {
       ? this.unflakableConfig.testSuiteId
       : "";
 
-    if (
-      this.unflakableConfig.enabled &&
-      process.env.UNFLAKABLE_API_KEY !== undefined &&
-      process.env.UNFLAKABLE_API_KEY !== ""
-    ) {
-      const apiKey = process.env.UNFLAKABLE_API_KEY;
+    if (this.unflakableConfig.enabled) {
+      const apiKey = loadApiKey();
       this.manifest = getTestSuiteManifest({
         testSuiteId,
         apiKey,
         baseUrl: this.unflakableConfig.apiBaseUrl,
         clientDescription: USER_AGENT,
-      })
-        .catch((e: Error) => {
-          printManifestError(e);
-          return undefined;
-        })
-        .then((manifest: TestSuiteManifest | undefined) => {
-          debug("Unflakable manifest:", manifest);
-          return manifest;
-        });
-    } else if (this.unflakableConfig.enabled) {
-      throw new Error(
-        "missing required environment variable `UNFLAKABLE_API_KEY`"
-      );
+        log: process.stderr.write.bind(process.stderr),
+      });
     } else {
       debug("Not fetching manifest because plugin is disabled");
       this.manifest = Promise.resolve(undefined);
@@ -255,7 +220,7 @@ class UnflakableRunner {
                   assertionResult._unflakableIsQuarantined !== true
               )
               .map((failedTest) => {
-                const testId = testKey(failedTest);
+                const testId = testKey(failedTest, false);
                 return `(^${escapeStringRegexp(testId.join(" "))}$)`;
               })
               .join("|");

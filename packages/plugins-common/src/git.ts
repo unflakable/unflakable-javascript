@@ -1,8 +1,8 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
-import type { SimpleGit } from "simple-git";
-import { debug as _debug } from "debug";
-import { simpleGit } from "simple-git";
+import _debug from "debug";
+import { simpleGit, SimpleGit, SimpleGitFactory } from "simple-git";
+import { branchOverride, commitOverride } from "./env";
 
 const debug = _debug("unflakable:git");
 
@@ -60,6 +60,29 @@ const getCurrentGitBranch = async (
 const getCurrentGitCommit = (git: SimpleGit): Promise<string> =>
   git.revparse("HEAD");
 
+export const getRepoRoot = (git: SimpleGit): Promise<string> =>
+  git.revparse(["--show-toplevel"]);
+
+// Used for testing.
+export const setSimpleGitFactory = (git: SimpleGitFactory): void => {
+  (
+    globalThis as {
+      __unflakableSimpleGitFactory?: SimpleGitFactory;
+    }
+  ).__unflakableSimpleGitFactory = git;
+};
+
+export const loadGitRepo = async (): Promise<SimpleGit | null> => {
+  const git = (
+    (
+      globalThis as {
+        __unflakableSimpleGitFactory?: SimpleGitFactory;
+      }
+    ).__unflakableSimpleGitFactory ?? simpleGit
+  )();
+  return (await git.checkIsRepo()) ? git : null;
+};
+
 export const autoDetectGit = async (
   log: (message: string) => void
 ): Promise<{
@@ -67,8 +90,8 @@ export const autoDetectGit = async (
   commit: string | undefined;
 }> => {
   try {
-    const git = simpleGit();
-    if (await git.checkIsRepo()) {
+    const git = await loadGitRepo();
+    if (git !== null) {
       const commit = await getCurrentGitCommit(git);
       const branch = await getCurrentGitBranch(git, commit);
 
@@ -84,7 +107,7 @@ export const autoDetectGit = async (
       }`
     );
     log(
-      "HINT: set the UNFLAKABLE_BRANCH and UNFLAKABLE_COMMIT environment variables or " +
+      `HINT: set the ${branchOverride.name} and ${commitOverride.name} environment variables or ` +
         "disable git auto-detection by setting `gitAutoDetect` to `false` in the " +
         "Unflakable config file."
     );

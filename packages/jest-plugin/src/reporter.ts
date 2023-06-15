@@ -20,7 +20,6 @@ import {
   TestRunRecord,
   createTestSuiteRun,
   testSuiteRunUrl,
-  TEST_NAME_ENTRY_MAX_LENGTH,
 } from "@unflakable/js-api";
 import {
   UnflakableAggregatedResult,
@@ -37,6 +36,9 @@ import { getResultHeader } from "./vendored/getResultHeader";
 import { formatTime } from "./vendored/formatTime";
 import {
   autoDetectGit,
+  branchOverride,
+  commitOverride,
+  loadApiKey,
   loadConfigSync,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
@@ -218,19 +220,7 @@ export default class UnflakableReporter extends BaseReporter {
     super();
     this.cwd = process.cwd();
     this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
-
-    if (
-      process.env.UNFLAKABLE_API_KEY !== undefined &&
-      process.env.UNFLAKABLE_API_KEY !== ""
-    ) {
-      this.apiKey = process.env.UNFLAKABLE_API_KEY;
-    } else if (this.unflakableConfig.enabled) {
-      throw new Error(
-        "missing required environment variable `UNFLAKABLE_API_KEY`"
-      );
-    } else {
-      this.apiKey = "";
-    }
+    this.apiKey = this.unflakableConfig.enabled ? loadApiKey() : "";
 
     if (globalConfig.verbose === true) {
       const verboseReporter = new VerboseReporter(globalConfig);
@@ -433,41 +423,13 @@ export default class UnflakableReporter extends BaseReporter {
           testFileResults.flatMap(
             (testFileResult) => testFileResult.testResults
           ),
-          (assertionResult) =>
-            JSON.stringify(
-              testKey({
-                ...assertionResult,
-                // See explanation below.
-                title: assertionResult.title.substring(
-                  0,
-                  TEST_NAME_ENTRY_MAX_LENGTH
-                ),
-              })
-            )
+          (assertionResult) => JSON.stringify(testKey(assertionResult))
         )
       )
         .map(
           ([, assertionResults]): TestRunRecord => ({
             filename: path.relative(this.cwd, testFilePath),
-            name: testKey({
-              ...assertionResults[0],
-              // If the last test name entry is too long, truncate it to prevent the backend from
-              // filtering it out. This allows us to support, for example, long code snippets passed
-              // to eslint.RuleTester. The downside is that if multiple tests share the same prefix,
-              // they will be treated as a single test. If one is quarantined, they will all
-              // effectively be quarantined. Users may avoid this issue by specifying unique (and
-              // ideally human-friendly) names for each test case rather than using a code snippet
-              // as the test name.
-              //
-              // Note that we do *not* truncate long filenames or test name entries other than the
-              // last one, nor do we remove test name entries beyond the maximum number of allowed
-              // entries. Any of these conditions will result in the backend filtering out the
-              // affected tests.
-              title: assertionResults[0].title.substring(
-                0,
-                TEST_NAME_ENTRY_MAX_LENGTH
-              ),
-            }),
+            name: testKey(assertionResults[0]),
             attempts: assertionResults
               .map((testResult: UnflakableAssertionResult) => ({
                 testResult,
@@ -491,8 +453,8 @@ export default class UnflakableReporter extends BaseReporter {
         .filter((runRecord) => runRecord.attempts.length > 0)
     );
 
-    let branch = process.env.UNFLAKABLE_BRANCH,
-      commit = process.env.UNFLAKABLE_COMMIT;
+    let branch = branchOverride.value,
+      commit = commitOverride.value;
 
     if (
       unflakableConfig.gitAutoDetect &&

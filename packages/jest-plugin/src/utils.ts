@@ -2,6 +2,7 @@
 
 import type { AssertionResult, Status } from "@jest/test-result";
 import jestPackage from "jest/package.json";
+import { normalizeTestName } from "@unflakable/plugins-common";
 
 const JEST_PLUGIN_VERSION: string =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -11,10 +12,13 @@ export const USER_AGENT = `unflakable-jest-plugin/${JEST_PLUGIN_VERSION} (Jest $
 export const FAILED: Status = "failed";
 export const PASSED: Status = "passed";
 
-export const testKey = (assertionResult: AssertionResult): string[] => [
-  ...assertionResult.ancestorTitles,
-  assertionResult.title,
-];
+export const testKey = (
+  assertionResult: AssertionResult,
+  normalize = true
+): string[] => {
+  const fullKey = [...assertionResult.ancestorTitles, assertionResult.title];
+  return normalize ? normalizeTestName(fullKey) : fullKey;
+};
 
 export const groupBy = <T>(
   arr: Array<T>,
