@@ -1,10 +1,12 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../../tsconfig.json",
   "compilerOptions": {
+    "outDir": "../dist/",
+    "declaration": true,
     // Removes DOM types.
     "lib": ["ES2019"],
     // Avoids conflicting global definitions from, e.g., jasmine.
     "types": ["node"]
   },
-  "include": [".eslintrc.js"]
+  "include": ["."]
 }

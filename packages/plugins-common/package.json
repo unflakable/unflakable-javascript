@@ -19,7 +19,7 @@
     "simple-git": "^3.16.0"
   },
   "scripts": {
-    "build": "tsc --build",
+    "build": "rm -rf dist && tsc --noEmit && tsc -p src",
     "build:watch": "tsc --build --watch"
   }
 }

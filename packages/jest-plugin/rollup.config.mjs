@@ -30,6 +30,8 @@ export default {
       "@unflakable/js-api/consts",
       "@unflakable/plugins-common",
     ].includes(id),
+  // Unclear why this is necessary.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   plugins: [
     pluginCommonJs(),
     pluginJson(),

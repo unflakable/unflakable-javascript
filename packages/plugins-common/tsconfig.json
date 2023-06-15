@@ -1,14 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist/",
-    "declaration": true,
     // Removes DOM types.
     "lib": ["ES2019"],
-    // Required by Rollup (consumed by Rollup in the *-plugin packages).
-    "module": "esnext",
     // Avoids conflicting global definitions from, e.g., jest.
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": [".eslintrc.js"]
 }

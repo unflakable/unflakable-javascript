@@ -1,11 +1,12 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
 module.exports = {
+  extends: ["../../.eslintrc-ts.js"],
   overrides: [
     {
       // Disable some rules that fail for vendored Jest code. If we fix these, it'll be harder to
       // merge upstream changes.
-      files: ["src/vendored/**/*.ts"],
+      files: ["src/vendored/**"],
       rules: {
         "@typescript-eslint/no-inferrable-types": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",

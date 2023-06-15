@@ -6,18 +6,14 @@ module.exports = {
   },
   extends: [
     "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@typescript-eslint/recommended-requiring-type-checking",
     "plugin:import/errors",
     "plugin:import/warnings",
-    "plugin:import/typescript",
   ],
-  parser: "@typescript-eslint/parser",
   parserOptions: {
-    // Find the tsconfig.json nearest each source file.
-    project: true,
+    // Support `??` operator.
+    ecmaVersion: 2020,
   },
-  plugins: ["@typescript-eslint", "import"],
+  plugins: ["import"],
   root: true,
   rules: {
     curly: ["error", "all"],
@@ -25,12 +21,7 @@ module.exports = {
     "no-implicit-coercion": ["error"],
     // https://github.com/eslint/eslint/blob/master/docs/rules/no-sequences.md#when-not-to-use-it
     "no-restricted-syntax": ["error", "SequenceExpression"],
-    "prefer-const": ["error", { destructuring: "all" }],
-    "require-await": ["error"],
-    "@typescript-eslint/explicit-function-return-type": ["error"],
-    "@typescript-eslint/explicit-module-boundary-types": ["error"],
-    "@typescript-eslint/no-unused-expressions": ["error"],
-    "@typescript-eslint/no-unused-vars": [
+    "no-unused-vars": [
       "error",
       {
         argsIgnorePattern: "^_",
@@ -38,20 +29,11 @@ module.exports = {
         varsIgnorePattern: "^_",
       },
     ],
-    "@typescript-eslint/no-use-before-define": ["error", { functions: false }],
-    "@typescript-eslint/strict-boolean-expressions": [
-      "error",
-      {
-        allowString: false,
-        allowNumber: false,
-        allowNullableObject: false,
-      },
-    ],
-    "@typescript-eslint/switch-exhaustiveness-check": ["error"],
+    "prefer-const": ["error", { destructuring: "all" }],
+    "require-await": ["error"],
   },
   settings: {
     "import/resolver": {
-      typescript: true,
       node: true,
     },
   },

@@ -15,5 +15,11 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "window.d.ts"]
+  "include": [
+    ".eslintrc.js",
+    "src",
+    "test/.eslintrc.js",
+    "rollup.config.mjs",
+    "window.d.ts"
+  ]
 }
