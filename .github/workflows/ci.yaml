@@ -12,7 +12,7 @@ on:
     - cron: 0 18 * * *
 
   # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch: { }
+  workflow_dispatch: {}
 
 jobs:
   check:
@@ -24,18 +24,31 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: "16"
           cache: yarn
-
-      - uses: actions/cache@v3
-        with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('yarn.lock') }}
 
       - id: install
         run: yarn install --immutable
 
       - run: yarn build
+
+      - run: yarn workspace @unflakable/cypress-plugin pack
+      - uses: actions/upload-artifact@v3
+        with:
+          name: cypress-plugin
+          path: packages/cypress-plugin/package.tgz
+
+      - run: yarn workspace @unflakable/jest-plugin pack
+      - uses: actions/upload-artifact@v3
+        with:
+          name: jest-plugin
+          path: packages/jest-plugin/package.tgz
+
+      - run: yarn workspace @unflakable/js-api pack
+      - uses: actions/upload-artifact@v3
+        with:
+          name: js-api
+          path: packages/js-api/package.tgz
 
       - if: ${{ always() && steps.install.outcome == 'success' }}
         run: yarn lint
@@ -56,6 +69,13 @@ jobs:
           # it's ignored for PR events, but that's fine.
           base: ${{ github.ref }}
           filters: |
+            cypress:
+              - package.json
+              - tsconfig.json
+              - .github/workflows/ci.yaml
+              - packages/cypress-plugin/**
+              - packages/js-api/**
+              - packages/plugins-common/**
             jest:
               - package.json
               - tsconfig.json
@@ -65,10 +85,86 @@ jobs:
               - packages/plugins-common/**
               - scripts/set-jest-version.ts
     outputs:
+      affects_cypress: ${{ steps.affects_plugins.outputs.cypress }}
       affects_jest: ${{ steps.affects_plugins.outputs.jest }}
+
+  cypress_integration_tests:
+    name: "Cypress Integration Tests: Cypress ${{ matrix.cypress }} + Node ${{ matrix.node }}"
+    # FIXME: also test on Windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+      # Don't incur the cost of the test matrix if the basic build fails.
+      - check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_cypress == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 16
+          - 18
+          - 20
+        cypress:
+          # FIXME: support earlier versions
+          #- "10.0"
+          #- "10.11"
+          #- "11.0"
+          - "11.2"
+          - "12.0"
+          - "12.10"
+          - "12.14"
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+
+      - name: Cache Cypress binary
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-node${{ matrix.node }}-cypress${{ matrix.cypress }}-modules-${{ hashFiles('yarn.lock') }}
+
+      - id: install
+        run: yarn install --immutable
+
+      - name: Set Cypress version
+        run: |
+          yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
+          grep --after-context=1 "^\".*cypress.*" yarn.lock
+
+      - run: yarn build:plugins && yarn build:cypress-tests
+
+      - name: Test
+        env:
+          # Enable debug logs within the Jest tests that run Cypress. WARNING: these are very
+          # verbose but are useful for seeing the raw chalk terminal codes.
+          # DEBUG: unflakable:*
+
+          # Enable debug logs within the Cypress plugin.
+          # TEST_DEBUG: unflakable:*
+
+          # Enable terminal colors for debug() output.
+          DEBUG_COLORS: "1"
+
+          # Make chalk emit TTY colors.
+          FORCE_COLOR: "1"
+        run: |
+          if [ "${{ github.repository }}" == "unflakable/unflakable-javascript" ]; then
+            export UNFLAKABLE_SUITE_ID=2QwtGckRudLNUGBsdkVEoSknck1
+          else
+            export UNFLAKABLE_SUITE_ID=2Qwt9RyPIbOI95C6qjXCzcTelni
+          fi
+          UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
+            yarn workspace cypress-integration test \
+            --reporters @unflakable/jest-plugin/dist/reporter \
+            --runner @unflakable/jest-plugin/dist/runner
 
   jest_integration_tests:
     name: "Jest Integration Tests: Jest ${{ matrix.jest }} + Node ${{ matrix.node }}"
+    # FIXME: also test on Windows
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
@@ -117,11 +213,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: yarn
-
-      - uses: actions/cache@v3
-        with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-node${{ matrix.node }}-jest${{ matrix.jest }}-modules-${{ hashFiles('yarn.lock') }}
 
       - id: install
         run: yarn install --immutable

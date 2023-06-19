@@ -1,0 +1,127 @@
+name: Cypress Real World App
+
+# Controls when the workflow will run
+on:
+  # Run daily so that we get continuous dogfooding.
+  schedule:
+    # Run at 7pm UTC/11am Pacific, which is after the CI pipeline runs so that we can use the
+    # latest build each day.
+    - cron: 0 19 * * *
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch: {}
+
+jobs:
+  ui-chrome-tests:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    container:
+      image: cypress/browsers:node16.16.0-chrome105-ff104-edge
+      options: --user 1001
+    steps:
+      - name: Check out latest cypress-io/cypress-realworld-app
+        uses: actions/checkout@v3
+        with:
+          repository: cypress-io/cypress-realworld-app
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: |
+            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.cache/Cypress
+          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+
+      - name: Download latest cypress-realworld-app build
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          repo: cypress-io/cypress-realworld-app
+          workflow: main.yml
+          branch: develop
+          name: build
+          path: build
+          search_artifacts: true
+
+      - name: Download latest Cypress plugin build
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: ci.yaml
+          workflow_conclusion: success
+          branch: main
+
+      - run: yarn install --frozen-lockfile
+
+      - name: Install @unflakable/cypress-plugin
+        # We clean the Yarn cache here to make sure we're installing the package contents from the
+        # tarballs. Otherwise, Yarn may install the previously cached version from an earlier build
+        # with the same package version number.
+        run: |
+          curl -Lo jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+          chmod +x jq
+
+          yarn cache clean @unflakable/js-api
+          yarn cache clean @unflakable/cypress-plugin
+          # See https://github.com/yarnpkg/yarn/issues/5357#issuecomment-748434801.
+          rm -rf "$(yarn cache dir)/.tmp"
+
+          # Make sure Yarn resolves @unflakable/js-api to the tarball. If we just try to install
+          # both packages at the same time, Yarn will complain if the js-api package version number
+          # doesn't exist in the public NPM registry.
+          cat package.json \
+            | ./jq '. + {"resolutions": (.resolutions + {"@unflakable/js-api": "file:./js-api/package.tgz"})}' \
+            > package-new.json
+          mv package-new.json package.json
+
+          yarn add --dev file:./cypress-plugin/package.tgz
+
+      - name: Cypress info
+        run: yarn cypress info
+
+      - name: Node info
+        run: node -v
+
+      - name: __e Dir
+        run: ls /__e
+
+      - name: "UI Tests - Chrome"
+        env:
+          DEBUG: "@cypress/github-action,unflakable:*"
+          UNFLAKABLE_SUITE_ID: 2RBwks266ZvV5jn9zR5Ula9XK7m
+          UNFLAKABLE_API_KEY: ${{ secrets.UNFLAKABLE_API_KEY }}
+        uses: cypress-io/github-action@v5
+        with:
+          install: false
+          command: yarn exec cypress-unflakable --
+          start: yarn start:ci
+          wait-on: "http://localhost:3000"
+          wait-on-timeout: 120
+          browser: chrome
+          record: true
+          parallel: true
+          group: "UI - Chrome"
+          spec: cypress/tests/ui/*
+          config-file: cypress.config.js
+
+      - name: Save screenshots
+        if: always()
+        uses: actions/upload-artifact@v3
+        # add the line below to store screenshots only on failures
+        # if: failure()
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore # 'warn' or 'error' are also available, defaults to `warn`
+
+      - name: Save videos
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cypress-videos
+          path: cypress/videos
+          if-no-files-found: ignore # 'warn' or 'error' are also available, defaults to `warn`

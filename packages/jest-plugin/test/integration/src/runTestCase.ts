@@ -8,7 +8,7 @@ import {
   MockResponse,
   MockMatcher,
 } from "fetch-mock";
-import { run } from "jest";
+import { run } from "jest-cli";
 import escapeStringRegexp from "escape-string-regexp";
 import {
   CreateTestSuiteRunFromUploadRequest,

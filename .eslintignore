@@ -1,0 +1,11 @@
+# TypeScript uniques files that are included in a project twice via symlinks. eslint complains that
+# the symlinked files aren't included in tsconfig.json (due to the deduping), so we ignore the
+# symlinked copies and just lint the canonical location at:
+# packages/cypress-plugin/test/integration-input/cypress/component
+packages/cypress-plugin/test/integration-input*/cypress/e2e
+
+# Cypress produces screenshot folders with names that match the *.ts glob, and eslint complains.
+packages/cypress-plugin/test/**/cypress/screenshots/*.ts
+
+# Don't lint output files.
+packages/**/dist

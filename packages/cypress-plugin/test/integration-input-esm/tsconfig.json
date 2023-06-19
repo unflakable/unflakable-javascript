@@ -1,0 +1,21 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "module": "ES2022",
+    "preserveSymlinks": true,
+    // The ts-loader that Cypress uses doesn't seem to support the `??` operator.
+    "target": "ES2019",
+    // Avoids conflicting global definitions from, e.g., jest.
+    "types": ["cypress", "node"]
+  },
+  "include": [
+    ".eslintrc.cjs",
+    "config",
+    "config-js",
+    "cypress",
+    "cypress.config.ts",
+    "cypress-config.cjs",
+    "cypress-config.js"
+  ]
+}

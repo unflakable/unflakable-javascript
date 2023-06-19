@@ -5,6 +5,9 @@ import _debug = require("debug");
 import { gzip } from "zlib";
 import { promisify } from "util";
 import retry from "async-retry";
+import { JS_API_VERSION } from "./consts";
+
+export { JS_API_VERSION, TEST_NAME_ENTRY_MAX_LENGTH } from "./consts";
 
 const debug = _debug("unflakable:api");
 
@@ -36,12 +39,6 @@ const fetch = (url: string, init?: RequestInit): Promise<Response> => {
 };
 
 const BASE_URL = "https://app.unflakable.com";
-
-export const TEST_NAME_ENTRY_MAX_LENGTH = 4096;
-
-export const JS_API_VERSION: string =
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  (require("../package.json") as { version: string }).version;
 
 export type TestRef = {
   test_id: string;

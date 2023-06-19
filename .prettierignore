@@ -1,0 +1,3 @@
+.yarn
+packages/cypress-plugin/**/cypress/screenshots/*.ts
+packages/**/dist

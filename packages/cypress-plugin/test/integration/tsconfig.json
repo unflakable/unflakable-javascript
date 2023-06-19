@@ -1,0 +1,11 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    // The Cypress integration tests themselves use Jest since we can't easily run integration tests
+    // that involve lots of Node.JS processes from inside the browser.
+    "types": ["jest", "jest-expect-message", "node"]
+  },
+  "include": [".eslintrc.js", "jest.config.js", "src"]
+}

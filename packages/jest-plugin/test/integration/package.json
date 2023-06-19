@@ -9,6 +9,8 @@
     "deep-equal": "^2.0.5",
     "fetch-mock-jest": "^1.5.1",
     "jest": "25.1.0 - 29",
+    "jest-cli": "25.1.0 - 29",
+    "jest-environment-node": "25.1.0 - 29",
     "temp": "^0.9.4"
   },
   "scripts": {

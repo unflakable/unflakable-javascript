@@ -2,10 +2,8 @@
 
 // Avoid depending on the core of the js-api, which includes a bunch of Node dependencies. We need
 // this module to work in the browser for the Cypress plugin's skip-tests module.
-import {
-  TEST_NAME_ENTRY_MAX_LENGTH,
-  TestSuiteManifest,
-} from "@unflakable/js-api";
+import { TEST_NAME_ENTRY_MAX_LENGTH } from "@unflakable/js-api/consts";
+import type { TestSuiteManifest } from "@unflakable/js-api";
 import deepEqual from "deep-equal";
 
 // If the last test name entry is too long, truncate it to prevent the backend from

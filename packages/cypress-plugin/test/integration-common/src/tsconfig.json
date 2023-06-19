@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "../dist",
+    // Required by Rollup (consumed by Rollup in the *-plugin packages).
+    "module": "esnext"
+  },
+  "include": ["."]
+}

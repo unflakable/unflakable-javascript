@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/",
+    "declaration": true,
+    // Required by Rollup.
+    "module": "esnext",
+    // Ensure Rollup build fails if there are type errors.
+    "noEmitOnError": true,
+    // Removes DOM types since most of the plugin runs in Node.
+    "lib": ["ES2019"],
+    // Cypress itself requires DOM types to be globally defined, but we don't want that for our own
+    // code.
+    "skipLibCheck": true,
+    // Avoids conflicting global definitions from, e.g., jest.
+    "types": ["node"]
+  },
+  "include": ["mocha.d.ts", "rollup.config.mjs"]
+}

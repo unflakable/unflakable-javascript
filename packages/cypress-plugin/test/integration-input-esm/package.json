@@ -1,0 +1,24 @@
+{
+  "name": "cypress-integration-input-esm",
+  "description": "Integration test input that uses ESM to test @unflakable/cypress-plugin's support for wrapping Cypress config and support files that use ESM",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@types/react": "^18.2.7",
+    "@types/react-dom": "^18.2.4",
+    "@unflakable/cypress-plugin": "workspace:^",
+    "cypress": "10 - 12",
+    "cypress-integration-common": "workspace:^",
+    "mocha": "=7.0.1",
+    "mocha-junit-reporter": "^2.2.0",
+    "process": "^0.11.10",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ts-loader": "^9.4.3",
+    "typescript": "^4.9.5",
+    "webpack": "^5.84.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

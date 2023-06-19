@@ -10,8 +10,16 @@
   "homepage": "https://unflakable.com",
   "license": "MIT",
   "version": "0.1.0",
-  "exports": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./quarantine": {
+      "types": "./dist/quarantine.d.ts",
+      "default": "./dist/quarantine.js"
+    }
+  },
   "dependencies": {
     "@unflakable/js-api": "workspace:^",
     "cosmiconfig": "^7.0.1",
