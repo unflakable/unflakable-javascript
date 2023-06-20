@@ -169,7 +169,7 @@ jobs:
     name: "Jest Integration Tests: Jest ${{ matrix.jest }} + Node ${{ matrix.node }}"
     # FIXME: also test on Windows
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
