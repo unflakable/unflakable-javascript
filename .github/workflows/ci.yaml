@@ -135,6 +135,9 @@ jobs:
           yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
           grep --after-context=1 "^\".*cypress.*" yarn.lock
 
+      - name: Install Cypress binary
+        run: yarn workspace cypress-integration exec cypress install
+
       - run: yarn build:plugins && yarn build:cypress-tests
 
       - name: Test
