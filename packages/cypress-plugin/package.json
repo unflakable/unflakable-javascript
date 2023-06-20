@@ -8,7 +8,7 @@
   "bugs": "https://github.com/unflakable/unflakable-javascript/issues",
   "homepage": "https://unflakable.com",
   "license": "MIT",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
