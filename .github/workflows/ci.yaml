@@ -113,6 +113,7 @@ jobs:
           - "12.0"
           - "12.10"
           - "12.14"
+          - "12.15"
     steps:
       - uses: actions/checkout@v3
 
