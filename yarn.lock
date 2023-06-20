@@ -2658,7 +2658,7 @@ __metadata:
     widest-line: 3.1.0
     yargs: ^17.7.2
   peerDependencies:
-    cypress: 10 - 12
+    cypress: 11.2 - 12
   bin:
     cypress-unflakable: ./dist/main.js
   languageName: unknown

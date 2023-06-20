@@ -82,7 +82,7 @@
     "widest-line": "3.1.0"
   },
   "peerDependencies": {
-    "cypress": "10 - 12"
+    "cypress": "11.2 - 12"
   },
   "scripts": {
     "build": "yarn clean && tsc --noEmit && tsc --noEmit -p src && yarn build:cjs && yarn build:esm",
