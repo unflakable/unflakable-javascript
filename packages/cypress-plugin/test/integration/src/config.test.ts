@@ -41,6 +41,20 @@ integrationTestSuite(() => {
       {
         params: {
           cliArgs: ["--test-suite-id", "MOCK_SUITE_ID_CLI"],
+          envVars: {
+            UNFLAKABLE_SUITE_ID: undefined,
+          },
+          expectedSuiteId: "MOCK_SUITE_ID_CLI",
+        },
+      },
+      done
+    ));
+
+  it("set test suite ID via CLI override", (done) =>
+    integrationTest(
+      {
+        params: {
+          cliArgs: ["--test-suite-id", "MOCK_SUITE_ID_CLI"],
           config: {
             testSuiteId: "MOCK_SUITE_ID_CONFIG",
           },

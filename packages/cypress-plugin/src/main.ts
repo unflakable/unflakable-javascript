@@ -263,7 +263,7 @@ const main = async (): Promise<void> => {
       ? path.resolve(process.cwd(), runOptions.project)
       : process.cwd();
 
-  const unflakableConfig = await loadConfig(projectRoot);
+  const unflakableConfig = await loadConfig(projectRoot, args["test-suite-id"]);
   debug(`Unflakable plugin is ${unflakableConfig.enabled ? "en" : "dis"}abled`);
 
   if (unflakableConfig.enabled) {
@@ -284,9 +284,6 @@ const main = async (): Promise<void> => {
       unflakableConfig.quarantineMode = args[
         "quarantine-mode"
       ] as QuarantineMode;
-    }
-    if (args["test-suite-id"] !== undefined) {
-      unflakableConfig.testSuiteId = args["test-suite-id"];
     }
     if (args["upload-results"] !== undefined) {
       unflakableConfig.uploadResults = args["upload-results"];

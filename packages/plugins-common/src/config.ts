@@ -141,7 +141,10 @@ const apiBaseUrlOverride = new EnvVar("UNFLAKABLE_API_BASE_URL");
 const apiKey = new EnvVar("UNFLAKABLE_API_KEY");
 const enabledOverride = new EnvVar("UNFLAKABLE_ENABLED");
 
-const mergeConfigWithEnv = (config: UnflakableConfigFile): UnflakableConfig => {
+const mergeConfigWithEnv = (
+  config: UnflakableConfigFile,
+  cliTestSuiteId?: string
+): UnflakableConfig => {
   if (enabledOverride.value !== undefined) {
     const enabled = !["false", "0"].includes(enabledOverride.value);
     debug(
@@ -177,7 +180,13 @@ const mergeConfigWithEnv = (config: UnflakableConfigFile): UnflakableConfig => {
     config.uploadResults = uploadResults;
   }
 
-  if (suiteIdOverride.value !== undefined && suiteIdOverride.value.length > 0) {
+  if (cliTestSuiteId !== undefined) {
+    debug(`Using suite ID \`${cliTestSuiteId}\` from CLI`);
+    return { ...config, testSuiteId: cliTestSuiteId };
+  } else if (
+    suiteIdOverride.value !== undefined &&
+    suiteIdOverride.value.length > 0
+  ) {
     debug(
       `Using suite ID \`${suiteIdOverride.value}\` from environment variable ${suiteIdOverride.name}`
     );
@@ -236,8 +245,13 @@ const loadConfigFile = async (
   }
 };
 
-export const loadConfig = (searchFrom: string): Promise<UnflakableConfig> =>
-  loadConfigFile(searchFrom).then(mergeConfigWithEnv);
+export const loadConfig = (
+  searchFrom: string,
+  testSuiteId?: string
+): Promise<UnflakableConfig> =>
+  loadConfigFile(searchFrom).then((config) =>
+    mergeConfigWithEnv(config, testSuiteId)
+  );
 
 const loadConfigFileSync = (searchFrom: string): UnflakableConfigFile => {
   const configExplorer = cosmiconfigSync("unflakable", {
