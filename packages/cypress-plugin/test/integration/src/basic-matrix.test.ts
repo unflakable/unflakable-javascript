@@ -60,6 +60,16 @@ integrationTestSuite(() => {
                                 }
                               : null,
                           configFile,
+                          envVars:
+                            // moduleResolution must be `node16` or `nodenext` in order to load a
+                            // .mjs ESM config file.
+                            projectName === "integration-input" &&
+                            configFile === "cypress-config.mjs"
+                              ? {
+                                  TS_NODE_COMPILER_OPTIONS:
+                                    '{"moduleResolution":"node16"}',
+                                }
+                              : {},
                           project: projectName as TestProjectName,
                           testMode,
                           expectQuarantinedTestsToBeSkipped:

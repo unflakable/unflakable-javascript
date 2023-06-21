@@ -2,6 +2,8 @@
   "extends": "../../../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": "./",
+    // Make sure the plugin works without requiring `moduleResolution: nodenext`.
+    "moduleResolution": "node",
     "preserveSymlinks": true,
     // The ts-loader that Cypress uses doesn't seem to support the `??` operator.
     "target": "ES2019",

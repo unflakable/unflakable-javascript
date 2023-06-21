@@ -27,6 +27,8 @@ import {
 } from "./config-env-vars";
 
 const CONFIG_WRAPPER_MODULE = "@unflakable/cypress-plugin/config-wrapper";
+const CONFIG_WRAPPER_SYNC_MODULE =
+  "@unflakable/cypress-plugin/config-wrapper-sync";
 
 const debug = _debug("unflakable:main");
 
@@ -266,6 +268,8 @@ const main = async (): Promise<void> => {
   const unflakableConfig = await loadConfig(projectRoot, args["test-suite-id"]);
   debug(`Unflakable plugin is ${unflakableConfig.enabled ? "en" : "dis"}abled`);
 
+  let configFile: string | undefined = undefined;
+
   if (unflakableConfig.enabled) {
     if (args.branch !== undefined) {
       branchOverride.value = args.branch;
@@ -293,43 +297,77 @@ const main = async (): Promise<void> => {
       JSON.stringify(unflakableConfig);
 
     if (args["auto-config"]) {
+      let userConfigPath: string | undefined = undefined;
       if (runOptions.config !== undefined) {
         ENV_VAR_USER_CONFIG_JSON.value = JSON.stringify(runOptions.config);
       } else {
-        const userConfigPath = await resolveUserConfigPath(
-          projectRoot,
-          runOptions
-        );
+        userConfigPath = await resolveUserConfigPath(projectRoot, runOptions);
         ENV_VAR_USER_CONFIG_PATH.value = userConfigPath;
+      }
 
-        // By default, Cypress invokes ts-node on CommonJS TypeScript projects by setting `dir`
-        // (deprecated alias for `cwd`) to the directory containing the Cypress config file:
-        // https://github.com/cypress-io/cypress/blob/62f58e00ec0e1f95bc0db3c644638e4882b91992/packages/server/lib/plugins/child/ts_node.js#L63
+      // By default, Cypress invokes ts-node on CommonJS TypeScript projects by setting `dir`
+      // (deprecated alias for `cwd`) to the directory containing the Cypress config file:
+      // https://github.com/cypress-io/cypress/blob/62f58e00ec0e1f95bc0db3c644638e4882b91992/packages/server/lib/plugins/child/ts_node.js#L63
 
-        // For both ESM and CommonJS TypeScript projects, Cypress invokes ts-node with the CWD set
-        // to that directory:
-        // https://github.com/cypress-io/cypress/blob/62f58e00ec0e1f95bc0db3c644638e4882b91992/packages/data-context/src/data/ProjectConfigIpc.ts#L260
+      // For both ESM and CommonJS TypeScript projects, Cypress invokes ts-node with the CWD set
+      // to that directory:
+      // https://github.com/cypress-io/cypress/blob/62f58e00ec0e1f95bc0db3c644638e4882b91992/packages/data-context/src/data/ProjectConfigIpc.ts#L260
 
-        // Since we're passing our `config-wrapper.js` as the Cypress config, the CWD becomes our
-        // dist/ directory. However, we need ts-node to load the user's tsconfig.json, not our own,
-        // or the user's cypress.config.ts file may not load properly when we require()/import()
-        // it.
-        // To accomplish this, we try to discover the user's tsconfig.json by traversing the
-        // ancestor directories containing the user's Cypress config file. This is the same
-        // approach TypeScript uses:
-        // https://github.com/microsoft/TypeScript/blob/2beeb8b93143f75cdf788d05bb3678ce3ff0e2b3/src/compiler/program.ts#L340-L345
+      // Since we're passing our `config-wrapper.js` as the Cypress config, the CWD becomes our
+      // dist/ directory. However, we need ts-node to load the user's tsconfig.json, not our own,
+      // or the user's cypress.config.ts file may not load properly when we require()/import()
+      // it.
+      // To accomplish this, we try to discover the user's tsconfig.json by traversing the
+      // ancestor directories containing the user's Cypress config file. This is the same
+      // approach TypeScript uses:
+      // https://github.com/microsoft/TypeScript/blob/2beeb8b93143f75cdf788d05bb3678ce3ff0e2b3/src/compiler/program.ts#L340-L345
 
-        // If we find a tsconfig.json, we set the TS_NODE_PROJECT environment variable to the
-        // directory containing it, which ts-node then uses instead of searching the `dir` passed by
-        // Cypress.
-        const userTsConfig = await findUserTsConfig(
-          path.dirname(userConfigPath)
-        );
-        if (userTsConfig !== null) {
-          const tsNodeProject = path.dirname(userTsConfig);
-          debug(`Setting TS_NODE_PROJECT to ${tsNodeProject}`);
-          process.env.TS_NODE_PROJECT = tsNodeProject;
-        }
+      // If we find a tsconfig.json, we set the TS_NODE_PROJECT environment variable to the
+      // directory containing it, which ts-node then uses instead of searching the `dir` passed by
+      // Cypress.
+      const userTsConfig = await findUserTsConfig(
+        path.dirname(userConfigPath ?? projectRoot)
+      );
+      if (userTsConfig !== null) {
+        const tsNodeProject = path.dirname(userTsConfig);
+        debug(`Setting TS_NODE_PROJECT to ${tsNodeProject}`);
+        process.env.TS_NODE_PROJECT = tsNodeProject;
+      }
+
+      // ESM configuration files can only be imported via dynamic import(), which is async.
+      // However,
+      // CommonJS files can't have top-level await, which means we can't have a CommonJS wrapper
+      // (config-wrapper-sync) import an ESM configuration file. For that, we use the ESM config
+      // wrapper. However, the ESM wrapper doesn't work for CommonJS TypeScript projects unless
+      // they explicitly set `moduleResolution: node16` (or `nodenext`), which we don't want to
+      // require from users. This is why we detect whether the project and/or config file are ESM
+      // when deciding which config wrapper to use. We assume that if the Cypress config file is
+      // .mjs/.mts, the TypeScript project (if any) is already using `node16`/`nodenext` (since
+      // otherwise, the project's own Cypress config file wouldn't work).
+      const userConfigIsEsm =
+        userConfigPath !== undefined
+          ? [".mjs", ".mts"].includes(path.extname(userConfigPath))
+          : false;
+
+      // Try to determine whether the project is using ESM, as Cypress does. See
+      // https://github.com/cypress-io/cypress/blob/62f58e00ec0e1f95bc0db3c644638e4882b91992/packages/data-context/src/data/ProjectConfigIpc.ts#L276-L285
+      try {
+        const pkgJson = JSON.parse(
+          (await fs.readFile(path.join(projectRoot, "package.json"))).toString(
+            "utf8"
+          )
+        ) as { type?: string };
+
+        configFile =
+          pkgJson.type === "module" || userConfigIsEsm
+            ? require.resolve(CONFIG_WRAPPER_MODULE)
+            : require.resolve(CONFIG_WRAPPER_SYNC_MODULE);
+      } catch (e) {
+        // Project does not have `package.json` or it was not found.
+        // Reasonable to assume not using es modules unless config is explicitly ESM.
+        configFile = userConfigIsEsm
+          ? require.resolve(CONFIG_WRAPPER_MODULE)
+          : require.resolve(CONFIG_WRAPPER_SYNC_MODULE);
       }
     }
 
@@ -344,7 +382,7 @@ const main = async (): Promise<void> => {
           ...runOptions,
           ...(args["auto-config"]
             ? {
-                configFile: require.resolve(CONFIG_WRAPPER_MODULE),
+                configFile,
               }
             : {}),
           quiet: true,

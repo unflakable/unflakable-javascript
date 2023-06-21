@@ -3,10 +3,12 @@
 const { openDevToolsOnLaunch } = require("./config/devtools");
 const { registerTasks } = require("./config/tasks");
 const webpackConfig = require("./config/webpack");
-const { registerSimpleGitMock } = require("cypress-integration-common/git");
+const {
+  registerSimpleGitMock,
+} = require("cypress-integration-common/dist/git");
 const {
   registerCosmiconfigMock,
-} = require("cypress-integration-common/config");
+} = require("cypress-integration-common/dist/config");
 
 const { registerUnflakable } = require("@unflakable/cypress-plugin");
 

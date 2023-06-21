@@ -2,11 +2,11 @@
 
 import { wrapCypressConfig } from "./index";
 import _debug from "debug";
-import { loadUserConfig } from "./load-user-config";
+import { loadUserConfigSync } from "./load-user-config";
 
-const debug = _debug("unflakable:config-wrapper");
+const debug = _debug("unflakable:config-wrapper-sync");
 
-const userConfig = await loadUserConfig();
+const userConfig = loadUserConfigSync();
 debug("Loaded user config %o", userConfig);
 
 export default wrapCypressConfig(userConfig);

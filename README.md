@@ -31,11 +31,6 @@ This plugin maintains compatibility with the Cypress and Node.js versions listed
 [![11.2.0+ | 12.0.0+](https://img.shields.io/badge/Cypress-11.2.0%2B%20%7C%2012.0.0%2B-17202C?logo=cypress&labelColor=white&logoColor=17202C&style=flat)](https://cypress.io)
 [![16 | 18 | 20](https://img.shields.io/badge/Node.js-16%20%7C%2018%20%7C%2020-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat)](https://nodejs.org)
 
-For TypeScript projects, `typescript` version 4.7 or later is required, and `tsconfig.json` must set
-[`moduleResolution`](https://www.typescriptlang.org/tsconfig#moduleResolution) to `node16` or
-`nodenext`. This setting is required so that
-[ES modules](https://nodejs.org/api/esm.html#modules-ecmascript-modules) resolve correctly.
-
 ## Jest Plugin
 
 The Jest plugin enables users of the [Jest](https://jestjs.io) JavaScript test framework

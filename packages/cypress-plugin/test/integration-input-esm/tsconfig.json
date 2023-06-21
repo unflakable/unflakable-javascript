@@ -2,7 +2,9 @@
   "extends": "../../../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "module": "ES2022",
+    // node16 adds ESM support.
+    "module": "node16",
+    "moduleResolution": "node16",
     "preserveSymlinks": true,
     // The ts-loader that Cypress uses doesn't seem to support the `??` operator.
     "target": "ES2019",

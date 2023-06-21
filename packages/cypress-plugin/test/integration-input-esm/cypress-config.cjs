@@ -1,9 +1,11 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
-const { registerSimpleGitMock } = require("cypress-integration-common/git");
+const {
+  registerSimpleGitMock,
+} = require("cypress-integration-common/dist/git");
 const {
   registerCosmiconfigMock,
-} = require("cypress-integration-common/config");
+} = require("cypress-integration-common/dist/config");
 
 module.exports = {
   /**

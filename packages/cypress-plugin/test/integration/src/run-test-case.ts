@@ -26,11 +26,11 @@ import { promisify, TextDecoder } from "util";
 import {
   CONFIG_MOCK_ENV_VAR,
   CosmiconfigMockParams,
-} from "cypress-integration-common/config";
+} from "cypress-integration-common/dist/config";
 import {
   GIT_MOCK_ENV_VAR,
   SimpleGitMockParams,
-} from "cypress-integration-common/git";
+} from "cypress-integration-common/dist/git";
 import path from "path";
 import { SummaryTotals } from "./parse-output";
 import { expect as expectExt } from "@jest/globals";
@@ -799,7 +799,7 @@ export const runTestCase = async (
 
   const args = [
     "--require",
-    require.resolve("cypress-integration-common/mock-cosmiconfig"),
+    require.resolve("cypress-integration-common/dist/mock-cosmiconfig"),
     cypressPluginBin,
     ...(params.project === "integration-input-manual"
       ? ["--no-auto-config", "--no-auto-support"]
