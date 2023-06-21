@@ -90,9 +90,7 @@
     "cypress": "11.2 - 12"
   },
   "scripts": {
-    "build": "yarn clean && tsc --noEmit && tsc --noEmit -p src && yarn build:cjs && yarn build:esm",
-    "build:cjs": "rollup --config --dir dist && rollup --config --input src/config-wrapper-sync.ts --file dist/config-wrapper-sync.js --chunkFileNames \"[name]-[hash]-sync.js\"",
-    "build:esm": "rollup --config --input src/config-wrapper.ts --file dist/config-wrapper.mjs --format es --chunkFileNames \"[name]-[hash].mjs\"",
+    "build": "yarn clean && tsc --noEmit && tsc --noEmit -p src && rollup --config",
     "clean": "rm -rf dist/",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --useStderr --verbose"
   }
