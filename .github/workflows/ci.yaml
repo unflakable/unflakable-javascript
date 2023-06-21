@@ -92,7 +92,7 @@ jobs:
     name: "Cypress Integration Tests: Cypress ${{ matrix.cypress }} + Node ${{ matrix.node }}"
     # FIXME: also test on Windows
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
@@ -148,7 +148,7 @@ jobs:
           # DEBUG: unflakable:*
 
           # Enable debug logs within the Cypress plugin.
-          # TEST_DEBUG: unflakable:*
+          TEST_DEBUG: unflakable:*
 
           # Enable terminal colors for debug() output.
           DEBUG_COLORS: "1"
