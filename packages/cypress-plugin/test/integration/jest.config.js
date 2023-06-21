@@ -13,6 +13,6 @@ module.exports = {
   setupFilesAfterEnv: ["jest-expect-message", "./src/matchers.ts"],
   testEnvironment: "node",
   // NB: This should be greater than TEST_TIMEOUT_MS used by the watchdog in runTestCase().
-  testTimeout: 60000,
+  testTimeout: 120000,
   verbose: true,
 };

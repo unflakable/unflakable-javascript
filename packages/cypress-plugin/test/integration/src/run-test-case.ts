@@ -40,9 +40,9 @@ import treeKill from "tree-kill";
 
 const debug = _debug("unflakable:integration-test:run-test-case");
 
-// Jest times out after 70 seconds, so we bail early here to allow time to print the
+// Jest times out after 120 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
-const TEST_TIMEOUT_MS = 50000;
+const TEST_TIMEOUT_MS = 110000;
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-cypress-plugin/(?:[-0-9.]|alpha|beta)+ \\(Cypress [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
