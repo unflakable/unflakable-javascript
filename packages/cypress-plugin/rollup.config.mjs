@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
 import pluginCommonJs from "@rollup/plugin-commonjs";
+import pluginDts from "rollup-plugin-dts";
 import pluginJson from "@rollup/plugin-json";
 import pluginNodeResolve from "@rollup/plugin-node-resolve";
 import pluginTypescript from "@rollup/plugin-typescript";
@@ -8,7 +9,7 @@ import pluginTypescript from "@rollup/plugin-typescript";
 /**
  * Bundle the internal @unflakable/plugins-common package, along with dependencies used by
  * vendored Cypress code that Cypress itself also bundles (i.e., doesn't list in its public
- * package.json as deps) in dist/, but leave most other imported packages as an external. Internal
+ * package.json as deps) in dist/, but leave most other imported packages as external. Internal
  * modules begin with `.` or `/`. We don't include `term-size` here because it depends on a
  * bundled vendor/ directory that rollup doesn't include.
  *
@@ -85,5 +86,30 @@ export default [
     external: isExternal,
     plugins,
     treeshake,
+  },
+  // Rollup types so that UnflakableConfig from @unflakable/plugins-common is bundled. This package
+  // doesn't get published separately, so our public types shouldn't reference it.
+  {
+    input: [
+      // NB: This should include every exported .d.ts from package.json.
+      "dist/config-wrapper-sync.d.ts",
+      "dist/config-wrapper.d.ts",
+      "dist/index.d.ts",
+      "dist/reporter.d.ts",
+      "dist/skip-tests.d.ts",
+    ],
+    output: {
+      dir: ".",
+      entryFileNames: "[name].d.ts",
+      format: "cjs",
+    },
+    external: isExternal,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    plugins: [
+      pluginNodeResolve({ preferBuiltins: true }),
+      pluginDts({
+        respectExternal: true,
+      }),
+    ],
   },
 ];

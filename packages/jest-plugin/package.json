@@ -62,7 +62,8 @@
     "jest-util": "25.1.0 - 29"
   },
   "scripts": {
-    "build": "tsc --noEmit && rollup --config",
-    "build:watch": "rollup --config --watch"
+    "build": "yarn clean && tsc --noEmit && rollup --config",
+    "build:watch": "rollup --config --watch",
+    "clean": "rm -rf dist/"
   }
 }

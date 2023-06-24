@@ -2678,6 +2678,7 @@ __metadata:
     ms: 2.1.1
     path-browserify: ^1.0.1
     rollup: ^3.21.1
+    rollup-plugin-dts: ^5.3.0
     simple-git: ^3.16.0
     term-size: 2.1.0
     tmp: ~0.2.1
