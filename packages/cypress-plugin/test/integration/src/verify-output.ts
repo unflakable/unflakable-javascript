@@ -24,6 +24,8 @@ import escapeStringRegexp from "escape-string-regexp";
 import { TestAttemptResult } from "@unflakable/js-api";
 
 const THROWN_ERROR = "\x1B[0m\x1B[31m     Error\x1B[0m\x1B[90m";
+const FAIL_SYMBOL = process.platform === "win32" ? "×" : "✖";
+const PASS_SYMBOL = process.platform === "win32" ? "√" : "✓";
 
 const verifySpecOutput = (
   params: TestCaseParams,
@@ -119,11 +121,11 @@ const verifySpecOutputs = (
                     // Last retry has different output.
                     { length: expectedRetries },
                     (_, idx) =>
-                      `  \x1B[31m  ✖ mixed: failure should be quarantined\x1B[0m\x1B[33m (attempt ${
+                      `  \x1B[31m  ${FAIL_SYMBOL} mixed: failure should be quarantined\x1B[0m\x1B[33m (attempt ${
                         idx + 1
                       } of ${expectedRetries + 1})\x1B[0m`
                   ),
-                  `  \x1B[35m  ✖ mixed: failure should be quarantined [failed, quarantined]\x1B[39m${
+                  `  \x1B[35m  ${FAIL_SYMBOL} mixed: failure should be quarantined [failed, quarantined]\x1B[39m${
                     expectedRetries > 0
                       ? `\x1B[33m (attempt ${expectedRetries + 1} of ${
                           expectedRetries + 1
@@ -132,27 +134,27 @@ const verifySpecOutputs = (
                   }`,
                   ...(expectedRetries > 0
                     ? [
-                        `  \x1B[31m  ✖ mixed: flake should be quarantined\x1B[0m\x1B[33m (attempt 1 of ${
+                        `  \x1B[31m  ${FAIL_SYMBOL} mixed: flake should be quarantined\x1B[0m\x1B[33m (attempt 1 of ${
                           expectedRetries + 1
                         })\x1B[0m`,
                         expectExt.stringMatching(
                           new RegExp(
                             // eslint-disable-next-line no-control-regex
-                            `^ {2}\x1B\\[35m {2}✓\x1B\\[39m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
+                            `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                               expectedRetries + 1
                             }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
                           )
                         ),
                       ]
                     : [
-                        "  \x1B[35m  ✖ mixed: flake should be quarantined [failed, quarantined]\x1B[39m",
+                        `  \x1B[35m  ${FAIL_SYMBOL} mixed: flake should be quarantined [failed, quarantined]\x1B[39m`,
                       ]),
                 ]
             : [
                 ...Array.from(
                   { length: expectedRetries + 1 },
                   (_, idx) =>
-                    `  \x1B[31m  ✖ mixed: failure should be quarantined\x1B[0m${
+                    `  \x1B[31m  ${FAIL_SYMBOL} mixed: failure should be quarantined\x1B[0m${
                       expectedRetries > 0
                         ? `\x1B[33m (attempt ${idx + 1} of ${
                             expectedRetries + 1
@@ -160,13 +162,13 @@ const verifySpecOutputs = (
                         : ""
                     }`
                 ),
-                `  \x1B[31m  ✖ mixed: flake should be quarantined\x1B[0m\x1B[33m (attempt 1 of ${
+                `  \x1B[31m  ${FAIL_SYMBOL} mixed: flake should be quarantined\x1B[0m\x1B[33m (attempt 1 of ${
                   expectedRetries + 1
                 })\x1B[0m`,
                 expectExt.stringMatching(
                   new RegExp(
                     // eslint-disable-next-line no-control-regex
-                    `^ {2}\x1B\\[33m {2}✓\x1B\\[0m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
+                    `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                       expectedRetries + 1
                     }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
                   )
@@ -180,7 +182,7 @@ const verifySpecOutputs = (
           ? Array.from(
               { length: expectedRetries + 1 },
               (_, idx) =>
-                `  \x1B[31m  ✖ mixed: should fail\x1B[0m${
+                `  \x1B[31m  ${FAIL_SYMBOL} mixed: should fail\x1B[0m${
                   expectedRetries > 0
                     ? `\x1B[33m (attempt ${idx + 1} of ${
                         expectedRetries + 1
@@ -198,14 +200,14 @@ const verifySpecOutputs = (
               ]
             : expectedRetries > 0
             ? [
-                `  \x1B[31m  ✖ mixed: should be flaky\x1B[0m\x1B[33m (attempt 1 of ${
+                `  \x1B[31m  ${FAIL_SYMBOL} mixed: should be flaky\x1B[0m\x1B[33m (attempt 1 of ${
                   expectedRetries + 1
                 })\x1B[0m`,
                 quarantineFlake && expectQuarantinedTestsToBeQuarantined
                   ? expectExt.stringMatching(
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
-                        `^ {2}\x1B\\[35m {2}✓\x1B\\[39m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
+                        `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
@@ -213,17 +215,19 @@ const verifySpecOutputs = (
                   : expectExt.stringMatching(
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
-                        `^ {2}\x1B\\[33m {2}✓\x1B\\[0m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
+                        `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     ),
               ]
-            : ["  \x1B[31m  ✖ mixed: should be flaky\x1B[0m"]
+            : [`  \x1B[31m  ${FAIL_SYMBOL} mixed: should be flaky\x1B[0m`]
           : ["  \x1B[36m  - mixed: should be flaky\x1B[0m"]),
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
-          /^ {2}\x1B\[32m {2}✓\x1B\[0m\x1B\[90m mixed: should pass\x1B\[0m\x1B\[90m \([0-9]+.+?\)\x1B\[0m$/
+          new RegExp(
+            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m mixed: should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+          )
         ),
         "  \x1B[36m  - mixed: should be skipped\x1B[0m",
       ],
@@ -599,7 +603,7 @@ const verifySpecOutputs = (
           ? Array.from(
               { length: expectedRetries + 1 },
               (_, idx) =>
-                `  \x1B[31m  ✖ should fail\x1B[0m${
+                `  \x1B[31m  ${FAIL_SYMBOL} should fail\x1B[0m${
                   expectedRetries > 0
                     ? `\x1B[33m (attempt ${idx + 1} of ${
                         expectedRetries + 1
@@ -612,7 +616,7 @@ const verifySpecOutputs = (
           ? Array.from(
               { length: expectedRetries + 1 },
               (_, idx) =>
-                `  \x1B[31m  ✖ should fail with multiple exceptions\x1B[0m${
+                `  \x1B[31m  ${FAIL_SYMBOL} should fail with multiple exceptions\x1B[0m${
                   expectedRetries > 0
                     ? `\x1B[33m (attempt ${idx + 1} of ${
                         expectedRetries + 1
@@ -626,7 +630,7 @@ const verifySpecOutputs = (
           ? Array.from(
               { length: expectedRetries + 1 },
               (_, idx) =>
-                `    \x1B[31m  ✖ should showDiff\x1B[0m${
+                `    \x1B[31m  ${FAIL_SYMBOL} should showDiff\x1B[0m${
                   expectedRetries > 0
                     ? `\x1B[33m (attempt ${idx + 1} of ${
                         expectedRetries + 1
@@ -694,14 +698,14 @@ const verifySpecOutputs = (
           !expectQuarantinedTestsToBeSkipped)
           ? expectedRetries > 0
             ? [
-                `\x1B[31m  ✖ should be flaky${expectedFlakeTestNameSuffix}\x1B[0m\x1B[33m (attempt 1 of ${
+                `\x1B[31m  ${FAIL_SYMBOL} should be flaky${expectedFlakeTestNameSuffix}\x1B[0m\x1B[33m (attempt 1 of ${
                   expectedRetries + 1
                 })\x1B[0m`,
                 quarantineFlake && expectQuarantinedTestsToBeQuarantined
                   ? expectExt.stringMatching(
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
-                        `^\x1B\\[35m {2}✓\x1B\\[39m\x1B\\[90m should be flaky${escapeStringRegexp(
+                        `^\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m should be flaky${escapeStringRegexp(
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
@@ -711,7 +715,7 @@ const verifySpecOutputs = (
                   : expectExt.stringMatching(
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
-                        `^\x1B\\[33m {2}✓\x1B\\[0m\x1B\\[90m should be flaky${escapeStringRegexp(
+                        `^\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m should be flaky${escapeStringRegexp(
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
@@ -720,7 +724,7 @@ const verifySpecOutputs = (
                     ),
               ]
             : [
-                `\x1B[31m  ✖ should be flaky${expectedFlakeTestNameSuffix}\x1B[0m`,
+                `\x1B[31m  ${FAIL_SYMBOL} should be flaky${expectedFlakeTestNameSuffix}\x1B[0m`,
               ]
           : [
               `\x1B[36m  - should be flaky${expectedFlakeTestNameSuffix}\x1B[0m${
@@ -938,7 +942,9 @@ const verifySpecOutputs = (
           ? [
               expectExt.stringMatching(
                 // eslint-disable-next-line no-control-regex
-                /^ {2}\x1B\[32m {2}✓\x1B\[0m\x1B\[90m should fail due to hook\x1B\[0m\x1B\[90m \([0-9]+.+?\)\x1B\[0m$/
+                new RegExp(
+                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should fail due to hook\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+                )
               ),
             ]
           : Array.from(
@@ -961,8 +967,8 @@ const verifySpecOutputs = (
                 // https://github.com/mochajs/mocha/blob/0be3f78491bbbcdc4dcea660ee7bfd557a225d9c/lib/runner.js#L332
                 (hookFailResult === "quarantined" &&
                 (!skipBeforeHook || idx === expectedRetries)
-                  ? "  \x1B[35m  ✖ should fail due to hook [failed, quarantined]\x1B[39m"
-                  : "  \x1B[31m  ✖ should fail due to hook\x1B[0m") +
+                  ? `  \x1B[35m  ${FAIL_SYMBOL} should fail due to hook [failed, quarantined]\x1B[39m`
+                  : `  \x1B[31m  ${FAIL_SYMBOL} should fail due to hook\x1B[0m`) +
                 (skipBeforeHook && expectedRetries > 0
                   ? `\x1B[33m (attempt ${idx + 1} of ${
                       expectedRetries + 1
@@ -973,13 +979,17 @@ const verifySpecOutputs = (
           ? [
               expectExt.stringMatching(
                 // eslint-disable-next-line no-control-regex
-                /^ {2}\x1B\[32m {2}✓\x1B\[0m\x1B\[90m should be skipped\x1B\[0m\x1B\[90m \([0-9]+.+?\)\x1B\[0m$/
+                new RegExp(
+                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should be skipped\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+                )
               ),
             ]
           : hookSkipResult === "fail"
-          ? ["  \x1B[31m  ✖ should be skipped\x1B[0m"]
+          ? [`  \x1B[31m  ${FAIL_SYMBOL} should be skipped\x1B[0m`]
           : hookSkipResult === "quarantined"
-          ? ["  \x1B[35m  ✖ should be skipped [failed, quarantined]\x1B[39m"]
+          ? [
+              `  \x1B[35m  ${FAIL_SYMBOL} should be skipped [failed, quarantined]\x1B[39m`,
+            ]
           : []),
       ],
       passing:
@@ -1048,7 +1058,7 @@ const verifySpecOutputs = (
         ? Array.from(
             { length: expectedRetries + 1 },
             (_, idx) =>
-              `\x1B[31m  ✖ An uncaught error was detected outside of a test\x1B[0m${
+              `\x1B[31m  ${FAIL_SYMBOL} An uncaught error was detected outside of a test\x1B[0m${
                 expectedRetries > 0
                   ? `\x1B[33m (attempt ${idx + 1} of ${
                       expectedRetries + 1
@@ -1091,12 +1101,16 @@ const verifySpecOutputs = (
         "called consoleLog command",
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
-          /^\x1B\[32m +✓\x1B\[0m\x1B\[90m should pass\x1B\[0m\x1B\[90m \([0-9]+.+?\)\x1B\[0m$/
+          new RegExp(
+            `^\\x1B\\[32m +${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+          )
         ),
         "\x1B[0m  suite name\x1B[0m",
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
-          /^ {2}\x1B\[32m {2}✓\x1B\[0m\x1B\[90m suite test should pass\x1B\[0m\x1B\[90m \([0-9]+.+?\)\x1B\[0m$/
+          new RegExp(
+            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m suite test should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+          )
         ),
       ],
       passing: 2,
@@ -1193,7 +1207,7 @@ const verifySpecOutputs = (
                     // Last retry has different output.
                     { length: expectedRetries },
                     (_, idx) =>
-                      `  \x1B[31m  ✖ should be quarantined\x1B[0m${
+                      `  \x1B[31m  ${FAIL_SYMBOL} should be quarantined\x1B[0m${
                         expectedRetries > 0
                           ? `\x1B[33m (attempt ${idx + 1} of ${
                               expectedRetries + 1
@@ -1201,7 +1215,7 @@ const verifySpecOutputs = (
                           : ""
                       }`
                   ),
-                  `  \x1B[35m  ✖ should be quarantined [failed, quarantined]\x1B[39m${
+                  `  \x1B[35m  ${FAIL_SYMBOL} should be quarantined [failed, quarantined]\x1B[39m${
                     expectedRetries > 0
                       ? `\x1B[33m (attempt ${expectedRetries + 1} of ${
                           expectedRetries + 1
@@ -1215,7 +1229,7 @@ const verifySpecOutputs = (
             : Array.from(
                 { length: expectedRetries + 1 },
                 (_, idx) =>
-                  `  \x1B[31m  ✖ should be quarantined\x1B[0m${
+                  `  \x1B[31m  ${FAIL_SYMBOL} should be quarantined\x1B[0m${
                     expectedRetries > 0
                       ? `\x1B[33m (attempt ${idx + 1} of ${
                           expectedRetries + 1

@@ -13,6 +13,7 @@ import {
 import { TestSuiteManifest } from "@unflakable/js-api";
 import {
   isTestQuarantined,
+  toPosix,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
 import path from "path";
@@ -277,7 +278,7 @@ export default class UnflakableSpecReporter extends reporters.Base {
 
   private readonly config: UnflakableConfig;
   private readonly manifest: TestSuiteManifest | null;
-  private readonly testFilename: string | null;
+  private readonly posixTestFilename: string | null;
 
   private indents = 0;
 
@@ -316,17 +317,19 @@ export default class UnflakableSpecReporter extends reporters.Base {
       options.reporterOptions as ReporterConfig;
     this.config = config;
     this.manifest = manifest ?? null;
-    this.testFilename =
+    this.posixTestFilename =
       runner.suite.file !== undefined
-        ? path.relative(
-            repoRoot,
-            // Absolute path of the spec file.
-            path.join(projectRoot, runner.suite.file)
+        ? toPosix(
+            path.relative(
+              repoRoot,
+              // Absolute path of the spec file.
+              path.join(projectRoot, runner.suite.file)
+            )
           )
         : // This can happen if a file has no tests, which should be ok since none of the event
           // handlers should get called.
           null;
-    debug(`Repo-relative test filename: ${this.testFilename ?? "null"}`);
+    debug(`Repo-relative test filename: ${this.posixTestFilename ?? "null"}`);
 
     runner.on(Runner.constants.EVENT_RUN_BEGIN, this.onRunBegin.bind(this));
     runner.once(Runner.constants.EVENT_RUN_END, this.onRunEnd.bind(this));
@@ -365,18 +368,18 @@ export default class UnflakableSpecReporter extends reporters.Base {
       return false;
     }
 
-    if (this.testFilename === null) {
+    if (this.posixTestFilename === null) {
       throw new Error("Suite has no `file` attribute");
     }
 
     const isQuarantined =
       this.manifest !== null &&
-      isTestQuarantined(this.manifest, this.testFilename, titlePath);
+      isTestQuarantined(this.manifest, this.posixTestFilename, titlePath);
 
     debug(
       `Test is ${isQuarantined ? "" : "NOT "}quarantined: ${JSON.stringify(
         titlePath
-      )} in file ${this.testFilename}`
+      )} in file ${this.posixTestFilename}`
     );
 
     return isQuarantined;
@@ -845,12 +848,12 @@ export default class UnflakableSpecReporter extends reporters.Base {
     // warning in this case rather than treating the test as flaky or potentially quarantining
     // it.
     if (currentTestRetry(test) > 0) {
-      if (this.testFilename === null) {
+      if (this.posixTestFilename === null) {
         throw new Error("Suite has no `file` attribute");
       }
 
       printWarning(
-        `test ${titlePathJson} in file ${this.testFilename} was pending (skipped) during retry`
+        `test ${titlePathJson} in file ${this.posixTestFilename} was pending (skipped) during retry`
       );
     }
 

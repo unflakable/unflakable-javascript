@@ -7,6 +7,7 @@ import {
   ENV_VAR_USER_CONFIG_PATH,
 } from "./config-env-vars";
 import path from "path";
+import { pathToFileURL } from "url";
 
 const debug = _debug("unflakable:load-user-config");
 
@@ -55,7 +56,8 @@ export const loadUserConfig = async (): Promise<
     // for ESM projects.
     debug(`require() failed; attempting dynamic import(): ${e as string}`);
     const config = (await import(
-      ENV_VAR_USER_CONFIG_PATH.value as string
+      // Windows paths don't work unless we convert them to file:// URLs.
+      pathToFileURL(ENV_VAR_USER_CONFIG_PATH.value as string).href
     )) as LoadedConfig;
     return config.default ?? config;
   }

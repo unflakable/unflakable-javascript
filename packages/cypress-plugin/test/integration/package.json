@@ -3,7 +3,6 @@
   "private": true,
   "devDependencies": {
     "@types/jest": "^29.5.2",
-    "@unflakable/cypress-plugin": "workspace:^",
     "@unflakable/jest-plugin": "workspace:^",
     "@unflakable/js-api": "workspace:^",
     "@unflakable/plugins-common": "workspace:^",

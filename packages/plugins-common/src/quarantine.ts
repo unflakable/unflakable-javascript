@@ -31,13 +31,13 @@ export const normalizeTestName = (fullTestName: string[]): string[] =>
 
 export const isTestQuarantined = (
   manifest: TestSuiteManifest,
-  testFilename: string,
+  posixTestFilename: string,
   fullTestName: string[]
 ): boolean => {
   const testName = normalizeTestName(fullTestName);
   return manifest.quarantined_tests.some(
     (quarantinedTest) =>
-      quarantinedTest.filename === testFilename &&
+      quarantinedTest.filename === posixTestFilename &&
       deepEqual(quarantinedTest.name, testName)
   );
 };

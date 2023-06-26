@@ -2,11 +2,7 @@
 
 /* eslint-disable no-control-regex */
 
-import {
-  specProjectPath,
-  TEST_SPEC_STUBS,
-  TestCaseParams,
-} from "./run-test-case";
+import { specPattern, TEST_SPEC_STUBS, TestCaseParams } from "./run-test-case";
 
 export type RunStarting = {
   specs: string[];
@@ -185,8 +181,6 @@ const parseRunStarting = (
   linesRead: number;
   runStarting: RunStarting;
 } => {
-  const { specNameStubs, testMode } = params;
-
   const runStartingLine = stdoutLines.findIndex(
     (line) =>
       line === "\x1B[0m  (\x1B[4m\x1B[1mRun Starting\x1B[22m\x1B[24m)\x1B[0m"
@@ -213,7 +207,9 @@ const parseRunStarting = (
 
   expect(tableEntries["Cypress"]).toMatch(/^[0-9]+\.[0-9]+\.[0-9]+$/);
   expect(tableEntries["Browser"]).toMatch(
-    /^Chrome [0-9]+ \x1B\[90m\(headless\)\x1B\[39m$/
+    // Electron is much faster on Windows than Chrome, and only a tiny bit slower on Linux, so we
+    // just use it for all the integration tests.
+    /^Electron [0-9]+ \x1B\[90m\(headless\)\x1B\[39m$/
   );
   expect(tableEntries["Node Version"]).toMatch(
     new RegExp(
@@ -224,13 +220,7 @@ const parseRunStarting = (
       )} \\x1B\\[90m\\(.+\\)\\x1B\\[39m$`
     )
   );
-  expect(tableEntries["Searched"]).toBe(
-    specNameStubs !== undefined && specNameStubs.length > 0
-      ? specNameStubs.map((stub) => specProjectPath(params, stub)).join(", ")
-      : testMode === "component"
-      ? "**/*.cy.{js,jsx,ts,tsx}"
-      : `cypress/e2e/**/*.cy.{js,jsx,ts,tsx}`
-  );
+  expect(tableEntries["Searched"]).toBe(specPattern(params));
 
   const parsedSpecsLine = tableEntries["Specs"].match(
     /^([0-9]+) found \((.*)\)$/
@@ -942,7 +932,7 @@ const parseSummaryTable = (
     .filter((line) => !TABLE_BETWEEN_ROWS_BORDER_LINE.test(line))
     .map((line): SummaryRow => {
       const parsedRowOrNull = line.match(
-        /^\x1B\[90m +│\x1B\[39m \x1B\[3(?:2m(?<iconPass>✔)|1m(?<iconFail>✖))\x1B\[39m +\x1B\[0m(?<spec>.+?)\x1B\[0m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)\x1B\[0m|90m-\x1B\[39m) +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:33m(?<unquarantinedFlakes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:35m(?<quarantined>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<unquarantinedPending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m│\x1B\[39m$/
+        /^\x1B\[90m +│\x1B\[39m \x1B\[3(?:2m(?<iconPass>[✔√])|1m(?<iconFail>[✖×]))\x1B\[39m +\x1B\[0m(?<spec>.+?)\x1B\[0m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)\x1B\[0m|90m-\x1B\[39m) +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:33m(?<unquarantinedFlakes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:35m(?<quarantined>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<unquarantinedPending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m│\x1B\[39m$/
       );
 
       expect(
@@ -991,7 +981,7 @@ const parseSummaryTable = (
   const summaryTotalsLine =
     stdoutLinesAfterLastSpecTable[runFinishedLine + 5 + numTableLines + 1];
   const parsedSummaryTotalsOrNull = summaryTotalsLine.match(
-    /^\x1B\[90m +\x1B\[39m \x1B\[3(?:2m(?<iconPass>✔)|1m(?<iconFail>✖))\x1B\[39m +\x1B\[3(:?2mAll specs passed!|1m(?<descFailed>[0-9]+) of (?<descTotal>[0-9]+) failed \([0-9]+%\))\x1B\[39m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)|90m-)\x1B\[0m +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:33m(?<unquarantinedFlakes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:35m(?<quarantined>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<unquarantinedPending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m \x1B\[39m$/
+    /^\x1B\[90m +\x1B\[39m \x1B\[3(?:2m(?<iconPass>[✔√])|1m(?<iconFail>[✖×]))\x1B\[39m +\x1B\[3(:?2mAll specs passed!|1m(?<descFailed>[0-9]+) of (?<descTotal>[0-9]+) failed \([0-9]+%\))\x1B\[39m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)|90m-)\x1B\[0m +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:33m(?<unquarantinedFlakes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:35m(?<quarantined>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<unquarantinedPending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m \x1B\[39m$/
   );
   expect(
     parsedSummaryTotalsOrNull,
@@ -1074,7 +1064,7 @@ const parsePluginDisabledSummaryTable = (
     .filter((line) => !TABLE_BETWEEN_ROWS_BORDER_LINE.test(line))
     .map((line): SummaryRow => {
       const parsedRowOrNull = line.match(
-        /^\x1B\[90m +│\x1B\[39m \x1B\[3(?:2m(?<iconPass>✔)|1m(?<iconFail>✖))\x1B\[39m +\x1B\[0m(?<spec>.+?)\x1B\[0m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)\x1B\[0m|90m-\x1B\[39m) +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<pending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m│\x1B\[39m$/
+        /^\x1B\[90m +│\x1B\[39m \x1B\[3(?:2m(?<iconPass>[✔√])|1m(?<iconFail>[✖×]))\x1B\[39m +\x1B\[0m(?<spec>.+?)\x1B\[0m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)\x1B\[0m|90m-\x1B\[39m) +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<pending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:[39]4m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m│\x1B\[39m$/
       );
 
       expect(
@@ -1116,7 +1106,7 @@ const parsePluginDisabledSummaryTable = (
   const summaryTotalsLine =
     stdoutLinesAfterLastSpecTable[runFinishedLine + 5 + numTableLines + 1];
   const parsedSummaryTotalsOrNull = summaryTotalsLine.match(
-    /^\x1B\[90m +\x1B\[39m \x1B\[3(?:2m(?<iconPass>✔)|1m(?<iconFail>✖))\x1B\[39m +\x1B\[3(:?2mAll specs passed!|1m(?<descFailed>[0-9]+) of (?<descTotal>[0-9]+) failed \([0-9]+%\))\x1B\[39m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)|90m-)\x1B\[0m +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<pending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:34m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m \x1B\[39m$/
+    /^\x1B\[90m +\x1B\[39m \x1B\[3(?:2m(?<iconPass>[✔√])|1m(?<iconFail>[✖×]))\x1B\[39m +\x1B\[3(:?2mAll specs passed!|1m(?<descFailed>[0-9]+) of (?<descTotal>[0-9]+) failed \([0-9]+%\))\x1B\[39m +\x1B\[90m(?<ms>.+?)\x1B\[39m +\x1B\[(?:0m(?<tests>[0-9]+)|90m-)\x1B\[0m +\x1B\[(?:32m(?<passes>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:31m(?<failures>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:36m(?<pending>[0-9]+)|90m-)\x1B\[39m +\x1B\[(?:[39]4m(?<skipped>[0-9]+)|90m-)\x1B\[39m \x1B\[90m \x1B\[39m$/
   );
   expect(
     parsedSummaryTotalsOrNull,

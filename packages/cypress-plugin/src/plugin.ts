@@ -16,9 +16,10 @@ import {
   commitOverride,
   isTestQuarantined,
   normalizeTestName,
+  toPosix,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
-import { require, userAgent } from "./utils";
+import { printWarning, require, userAgent } from "./utils";
 import { configureMochaReporter } from "./reporter-config";
 import {
   color,
@@ -393,7 +394,7 @@ export class UnflakableCypressPlugin {
       options.autoSupportFile !== false
     ) {
       const updatedSupportFile = await this.generateSkipTestsSupportFile(
-        config.supportFile
+        config
       );
       this.supportFilePath = updatedSupportFile;
       config.supportFile = updatedSupportFile;
@@ -411,32 +412,37 @@ export class UnflakableCypressPlugin {
   };
 
   private generateSkipTestsSupportFile = async (
-    configuredSupportFile: string | false
+    config: Cypress.PluginConfigOptions
   ): Promise<string> => {
     const debug = baseDebug.extend("generateSkipTestsSupportFile");
 
     // We have to write a temporary Cypress support file on the fly because Cypress can't load
     // support files inside of node_modules. See https://github.com/cypress-io/cypress/issues/23616.
     // Once Cypress loads our support file, it's fine to load other modules that live in
-    // node_modules.
+    // node_modules. Cypress also requires the support file to be located within the project root
+    // due to https://github.com/cypress-io/cypress/issues/8599#issuecomment-1290526416.
+    const tmpdir = path.join(config.projectRoot, ".unflakable-tmp");
+    await fs.mkdir(tmpdir, { recursive: true });
+
     const supportFilePath =
       (await promisify<string, TmpNameOptions>(tmpName)({
-        prefix: "unflakable-cypress-support-file",
-      })) + ".js";
+        prefix: "cypress-support-file",
+        tmpdir,
+      })) + ".cjs";
     debug(`Using temp path \`${supportFilePath}\` for Cypress support file`);
 
     const skipTestsPath = require.resolve(SKIP_TESTS_MODULE);
     debug(`Support file will load skip-tests from ${skipTestsPath}`);
 
-    if (configuredSupportFile !== false) {
-      debug(`Will load existing support file from ${configuredSupportFile}`);
+    if (config.supportFile !== false) {
+      debug(`Will load existing support file from ${config.supportFile}`);
     }
 
     const supportFileContents = `
 require(${JSON.stringify(skipTestsPath)}).registerMochaInstrumentation();
 ${
-  configuredSupportFile !== false
-    ? `require(${JSON.stringify(configuredSupportFile)});`
+  config.supportFile !== false
+    ? `require(${JSON.stringify(config.supportFile)});`
     : ""
 }
     `;
@@ -560,6 +566,17 @@ ${
     const debug = baseDebug.extend("afterRun");
     debug("Received afterRun event");
 
+    if (this.supportFilePath !== null) {
+      debug(`Deleting temp support file ${this.supportFilePath}`);
+      await fs.unlink(this.supportFilePath).catch((e) => {
+        printWarning(
+          `Failed to delete temp support file ${
+            this.supportFilePath as string
+          }: ${e as string}`
+        );
+      });
+    }
+
     if (results.status === "finished") {
       renderSummaryTable(results);
 
@@ -568,7 +585,9 @@ ${
         // compile (e.g., due to Webpack errors).
         (tests ?? [])
           .map((test): TestRunRecord => {
-            const filename = path.relative(this.repoRoot, spec.absolute);
+            const filename = toPosix(
+              path.relative(this.repoRoot, spec.absolute)
+            );
             const isQuarantined =
               this.manifest !== null &&
               this.unflakableConfig.quarantineMode !== "no_quarantine" &&
@@ -596,11 +615,6 @@ ${
       } else {
         await this.uploadResults(results, testRuns);
       }
-    }
-
-    if (this.supportFilePath !== null) {
-      debug(`Deleting temp support file ${this.supportFilePath}`);
-      await fs.unlink(this.supportFilePath);
     }
   };
 

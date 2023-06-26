@@ -27,6 +27,7 @@ import {
   CYPRESS_ENV_VAR_MANIFEST,
   CYPRESS_ENV_VAR_REPO_ROOT,
 } from "./cypress-env-vars";
+import convertPath from "@stdlib/utils-convert-path";
 
 const debug = _debug("unflakable:skip-tests");
 
@@ -110,7 +111,15 @@ const instrumentTestFn = (
       config: Cypress.TestConfigOverrides | undefined,
       fn: Mocha.Func | undefined
     ): Mocha.Test => {
-      const testFilename = path.relative(repoRoot, Cypress.spec.absolute);
+      // NB: On Windows, Cypress.spec.absolute uses a mixed path convention (e.g., C:/foo/bar),
+      // while repoRoot uses a Windows path convention (e.g., C:\foo\bar). In order for
+      // path.relative to work correctly, we have to convert both to POSIX conventions (e.g.,
+      // /c/foo/bar). This is because path-browserify doesn't have win32 support:
+      // https://github.com/browserify/path-browserify/issues/1.
+      const testFilename = path.relative(
+        convertPath(repoRoot, "posix"),
+        convertPath(Cypress.spec.absolute, "posix")
+      );
       const titlePath = [...suiteStack, title];
       const isQuarantined =
         manifest !== null &&

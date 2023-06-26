@@ -132,6 +132,9 @@ export type TestCaseParams = {
   testMode: TestMode;
 };
 
+export const projectPath = (params: TestCaseParams): string =>
+  path.join("..", params.project);
+
 export const specFilename = (
   params: TestCaseParams,
   specNameStub: string
@@ -144,6 +147,27 @@ export const specProjectPath = (
   params: TestCaseParams,
   specNameStub: string
 ): string => `cypress/${params.testMode}/${specFilename(params, specNameStub)}`;
+
+export const specPattern = (params: TestCaseParams): string => {
+  const { specNameStubs, testMode } = params;
+  return specNameStubs !== undefined && specNameStubs.length > 0
+    ? // Cypress doesn't convert to relative path on Windows due to hard-coding a forward slash
+      // into the path. See:
+      // https://github.com/cypress-io/cypress/blob/3d0a2b406115db292130df774348c4f1fd4a3240/packages/server/lib/modes/run.ts#L52
+      specNameStubs
+        .map((stub) =>
+          process.platform === "win32"
+            ? `${path.resolve(projectPath(params))}\\${specProjectPath(
+                params,
+                stub
+              ).replaceAll("/", "\\")}`
+            : specProjectPath(params, stub)
+        )
+        .join(", ")
+    : testMode === "component"
+    ? "**/*.cy.{js,jsx,ts,tsx}"
+    : `cypress/e2e/**/*.cy.{js,jsx,ts,tsx}`;
+};
 
 const specRepoPath = (params: TestCaseParams, specNameStub: string): string =>
   params.expectedRepoRelativePathPrefix + specProjectPath(params, specNameStub);
@@ -757,9 +781,8 @@ export const runTestCase = async (
       }
     });
 
-  const projectPath = path.join("..", params.project);
   const configMockParams: CosmiconfigMockParams = {
-    searchFrom: path.resolve(projectPath),
+    searchFrom: path.resolve(projectPath(params)),
     searchResult:
       params.config !== null
         ? {
@@ -773,7 +796,11 @@ export const runTestCase = async (
   // in order to mock cosmiconfig for testing. Instead, we resolve the binary to an absolute path
   // using `yarn bin` and then invoke node directly.
   const cypressPluginBin = (
-    await promisify(execFile)("yarn", ["bin", "cypress-unflakable"])
+    await promisify(execFile)("yarn", ["bin", "cypress-unflakable"], {
+      cwd: projectPath(params),
+      // yarn.CMD isn't executable without a shell on Windows.
+      shell: process.platform === "win32",
+    })
   ).stdout.trimEnd();
 
   Object.entries(params.testEnvVars).forEach(([key, value]) => {
@@ -808,9 +835,6 @@ export const runTestCase = async (
     "--",
     // e2e/component
     `--${params.testMode}`,
-    // Chrome is faster than Electron, at least on Mac.
-    "--browser",
-    "chrome",
     ...(params.specNameStubs !== undefined
       ? [
           "--spec",
@@ -838,17 +862,26 @@ export const runTestCase = async (
     UNFLAKABLE_API_BASE_URL: `http://localhost:${apiServer.port}`,
     [CONFIG_MOCK_ENV_VAR]: JSON.stringify(configMockParams),
     [GIT_MOCK_ENV_VAR]: JSON.stringify(params.git),
+    // Windows requires these environment variables to be propagated.
+    ...(process.platform === "win32"
+      ? {
+          APPDATA: process.env.APPDATA,
+          LOCALAPPDATA: process.env.LOCALAPPDATA,
+          TMP: process.env.TMP,
+          TEMP: process.env.TEMP,
+        }
+      : {}),
   };
 
   debug(
     `Spawning test:\n  args = %o\n  environment = %o\n  cwd = %s`,
     args,
     env,
-    projectPath
+    projectPath(params)
   );
 
   const cypressChild = spawn("node", args, {
-    cwd: projectPath,
+    cwd: projectPath(params),
     env,
   });
 

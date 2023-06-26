@@ -10,6 +10,7 @@ import path from "path";
 import _debug from "debug";
 import cypressPackage from "cypress/package.json";
 import { SummaryTotals } from "./parse-output";
+import * as os from "os";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -142,11 +143,23 @@ export const integrationTestSuite = (runTests: () => void): void => {
       ? cypressMinorVersion[0]
       : cypressPackage.version
   }`, () => {
-    // Only use Node major version for test name.
-    describe(`Node ${
-      nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
-    }`, () => {
-      runTests();
-    });
+    const platform = os.platform();
+    describe(
+      platform === "darwin"
+        ? `MacOS`
+        : platform === "linux"
+        ? "Linux"
+        : platform === "win32"
+        ? "Windows"
+        : platform,
+      () => {
+        // Only use Node major version for test name.
+        describe(`Node ${
+          nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
+        }`, () => {
+          runTests();
+        });
+      }
+    );
   });
 };

@@ -5,6 +5,7 @@ import pluginDts from "rollup-plugin-dts";
 import pluginJson from "@rollup/plugin-json";
 import pluginNodeResolve from "@rollup/plugin-node-resolve";
 import pluginTypescript from "@rollup/plugin-typescript";
+import path from "path";
 
 /**
  * Bundle the internal @unflakable/plugins-common package, along with dependencies used by
@@ -17,8 +18,8 @@ import pluginTypescript from "@rollup/plugin-typescript";
  */
 const isExternal = (id) =>
   !id.startsWith(".") &&
-  !id.startsWith("/") &&
-  !id.startsWith("src/") &&
+  !path.isAbsolute(id) &&
+  !id.startsWith(`src/`) &&
   !id.startsWith("@unflakable/plugins-common/") &&
   ![
     // Avoid having skip-tests depend on @unflakable/js-api, which could pull in Node dependencies

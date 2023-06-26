@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
+import path from "path";
+
 export {
   QuarantineMode,
   UnflakableConfig,
@@ -23,3 +25,8 @@ export {
 } from "./git";
 export { getTestSuiteManifest } from "./manifest";
 export { isTestQuarantined, normalizeTestName } from "./quarantine";
+
+// On Windows, we need to convert backslashes to forward slashes before reporting results to the
+// backend or checking whether tests are quarantined.
+export const toPosix = (file: string): string =>
+  file.split(path.sep).join(path.posix.sep);

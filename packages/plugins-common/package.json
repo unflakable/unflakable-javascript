@@ -24,10 +24,11 @@
     "@unflakable/js-api": "workspace:^",
     "cosmiconfig": "^7.0.1",
     "debug": "^4.3.3",
+    "rimraf": "^5.0.1",
     "simple-git": "^3.16.0"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc --noEmit && tsc -p src",
+    "build": "rimraf dist && tsc --noEmit && tsc -p src",
     "build:watch": "tsc --build --watch"
   }
 }

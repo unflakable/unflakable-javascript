@@ -88,9 +88,8 @@ jobs:
       affects_cypress: ${{ steps.affects_plugins.outputs.cypress }}
       affects_jest: ${{ steps.affects_plugins.outputs.jest }}
 
-  cypress_integration_tests:
-    name: "Cypress Integration Tests: Cypress ${{ matrix.cypress }} + Node ${{ matrix.node }}"
-    # FIXME: also test on Windows
+  cypress_linux_integration_tests:
+    name: "Cypress ${{ matrix.cypress }} Linux Node ${{ matrix.node }} Integration Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
@@ -126,20 +125,44 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/Cypress
-          key: cypress-${{ runner.os }}-node${{ matrix.node }}-cypress${{ matrix.cypress }}-modules-${{ hashFiles('yarn.lock') }}
+          key: cypress-${{ runner.os }}-node${{ matrix.node }}-cypress${{ matrix.cypress }}
 
       - id: install
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
         run: yarn install --immutable
 
+      - uses: actions/download-artifact@v3
+        with:
+          path: .artifacts
+
+      - name: Install pre-built plugin packages
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
+        run: |
+          curl -Lo jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+          chmod +x jq
+          cat package.json \
+            | ./jq '. + {"resolutions": (.resolutions + {
+                "@unflakable/cypress-plugin": "file:./.artifacts/cypress-plugin/package.tgz",
+                "@unflakable/jest-plugin": "file:./.artifacts/jest-plugin/package.tgz",
+                "@unflakable/js-api": "file:./.artifacts/js-api/package.tgz"
+              })}' > package-new.json
+          mv package-new.json package.json
+          yarn install --no-immutable
+
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:cypress-tests
+
       - name: Set Cypress version
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
         run: |
           yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
           grep --after-context=1 "^\".*cypress.*" yarn.lock
 
       - name: Install Cypress binary
         run: yarn workspace cypress-integration exec cypress install
-
-      - run: yarn build:plugins && yarn build:cypress-tests
 
       - name: Test
         env:
@@ -163,11 +186,109 @@ jobs:
           fi
           UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
             yarn workspace cypress-integration test \
-            --reporters @unflakable/jest-plugin/dist/reporter \
-            --runner @unflakable/jest-plugin/dist/runner
+              --reporters @unflakable/jest-plugin/dist/reporter \
+              --runner @unflakable/jest-plugin/dist/runner
+
+  cypress_windows_integration_tests:
+    name: "Cypress ${{ matrix.cypress }} Windows Node ${{ matrix.node }} Integration Tests"
+    runs-on: windows-2022
+    # Cypress on Windows is slowwww...
+    timeout-minutes: 90
+    needs:
+      # Don't incur the cost of the test matrix if the basic build fails.
+      - check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_cypress == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 16
+          - 18
+          - 20
+        cypress:
+          # FIXME: support earlier versions
+          #- "10.0"
+          #- "10.11"
+          #- "11.0"
+          - "11.2"
+          - "12.0"
+          - "12.10"
+          - "12.14"
+          - "12.15"
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+
+      - name: Get AppData directory
+        run: echo ("LOCALAPPDATA=" + $env:LOCALAPPDATA) >> $env:GITHUB_ENV
+
+      - name: Cache Cypress binary
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.LOCALAPPDATA }}\Cypress\Cache
+          key: cypress-${{ runner.os }}-node${{ matrix.node }}-cypress${{ matrix.cypress }}
+
+      - id: install
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
+        run: |
+          yarn install --immutable
+
+      - uses: actions/download-artifact@v3
+        with:
+          path: .artifacts
+
+      - name: Install pre-built plugin packages
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
+        shell: bash
+        run: |
+          curl -Lo jq.exe https://github.com/jqlang/jq/releases/download/jq-1.6/jq-win64.exe
+          cat package.json \
+            | ./jq.exe '. + {"resolutions": (.resolutions + {
+                "@unflakable/cypress-plugin": "file:./.artifacts/cypress-plugin/package.tgz",
+                "@unflakable/jest-plugin": "file:./.artifacts/jest-plugin/package.tgz",
+                "@unflakable/js-api": "file:./.artifacts/js-api/package.tgz"
+              })}' > package-new.json
+          mv package-new.json package.json
+          yarn install --no-immutable
+
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:cypress-tests
+
+      - name: Set Cypress version
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
+        run: |
+          yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
+          Select-String -Pattern '^".*cypress.*' -Path yarn.lock -Context 0,1
+
+      - name: Install Cypress binary
+        run: yarn workspace cypress-integration exec cypress install
+
+      - name: Test
+        env:
+          # Enable debug logs within the Jest tests that run Cypress. WARNING: these are very
+          # verbose but are useful for seeing the raw chalk terminal codes.
+          # DEBUG: unflakable:*
+
+          # Enable debug logs within the Cypress plugin.
+          TEST_DEBUG: unflakable:*
+
+          # Enable terminal colors for debug() output.
+          DEBUG_COLORS: "1"
+
+          # Make chalk emit TTY colors.
+          FORCE_COLOR: "1"
+        # FIXME: use Jest plugin once it works on Windows
+        run: yarn workspace cypress-integration test
 
   jest_integration_tests:
-    name: "Jest Integration Tests: Jest ${{ matrix.jest }} + Node ${{ matrix.node }}"
+    name: "Jest ${{ matrix.jest }} Linux Node ${{ matrix.node }} Integration Tests"
     # FIXME: also test on Windows
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -209,6 +330,8 @@ jobs:
           - "25.3"
           - "25.2"
           - "25.1"
+    env:
+      CYPRESS_INSTALL_BINARY: "0"
 
     steps:
       - uses: actions/checkout@v3
@@ -220,6 +343,22 @@ jobs:
 
       - id: install
         run: yarn install --immutable
+
+      - uses: actions/download-artifact@v3
+        with:
+          path: .artifacts
+
+      - name: Install pre-built plugin packages
+        run: |
+          curl -Lo jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+          chmod +x jq
+          cat package.json \
+            | ./jq '. + {"resolutions": (.resolutions + {
+                "@unflakable/jest-plugin": "file:./.artifacts/jest-plugin/package.tgz",
+                "@unflakable/js-api": "file:./.artifacts/js-api/package.tgz"
+              })}' > package-new.json
+          mv package-new.json package.json
+          yarn install --no-immutable
 
       # Since Jest is composed of many packages, we need to make sure that they're all using the
       # same major and minor versions. Otherwise, NPM will keep the newer minor versions since
@@ -234,8 +373,6 @@ jobs:
       - name: Set resolution for chalk to 3.0.0
         if: ${{ startsWith(matrix.jest, '25.')  }}
         run: yarn set resolution "chalk@npm:^3.0.0 || ^4.0.0" 3.0
-
-      - run: yarn build:plugins
 
       - name: Test
         env:

@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
+import path from "path";
 import pluginCommonJs from "@rollup/plugin-commonjs";
 import pluginDts from "rollup-plugin-dts";
 import pluginJson from "@rollup/plugin-json";
@@ -14,7 +15,7 @@ import pluginTypescript from "@rollup/plugin-typescript";
  */
 const isExternal = (id) =>
   !id.startsWith(".") &&
-  !id.startsWith("/") &&
+  !path.isAbsolute(id) &&
   !id.startsWith("src/") &&
   !id.startsWith("@unflakable/plugins-common/") &&
   ![

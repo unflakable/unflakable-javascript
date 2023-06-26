@@ -32,10 +32,11 @@
   },
   "devDependencies": {
     "@types/async-retry": "^1.4.5",
-    "@types/node-fetch": "^2.6.2"
+    "@types/node-fetch": "^2.6.2",
+    "rimraf": "^5.0.1"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc --noEmit && tsc -p src",
+    "build": "rimraf dist && tsc --noEmit && tsc -p src",
     "build:watch": "tsc --build --watch"
   }
 }
