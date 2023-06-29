@@ -142,7 +142,7 @@ const verifySpecOutputs = (
                             // eslint-disable-next-line no-control-regex
                             `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                               expectedRetries + 1
-                            }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                            }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                           )
                         ),
                       ]
@@ -170,7 +170,7 @@ const verifySpecOutputs = (
                     // eslint-disable-next-line no-control-regex
                     `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                       expectedRetries + 1
-                    }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                    }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                   )
                 ),
               ]
@@ -209,7 +209,7 @@ const verifySpecOutputs = (
                         // eslint-disable-next-line no-control-regex
                         `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
-                        }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                        }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     )
                   : expectExt.stringMatching(
@@ -217,7 +217,7 @@ const verifySpecOutputs = (
                         // eslint-disable-next-line no-control-regex
                         `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
-                        }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                        }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     ),
               ]
@@ -226,7 +226,7 @@ const verifySpecOutputs = (
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
           new RegExp(
-            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m mixed: should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m mixed: should pass\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
           )
         ),
         "  \x1B[36m  - mixed: should be skipped\x1B[0m",
@@ -709,7 +709,7 @@ const verifySpecOutputs = (
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
-                        }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                        }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     )
                   : expectExt.stringMatching(
@@ -719,7 +719,7 @@ const verifySpecOutputs = (
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
                           expectedRetries + 1
-                        }\\)\x1B\\[0m\x1B\\[90m \\([0-9]+.+?\\)\x1B\\[0m$`
+                        }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     ),
               ]
@@ -943,7 +943,7 @@ const verifySpecOutputs = (
               expectExt.stringMatching(
                 // eslint-disable-next-line no-control-regex
                 new RegExp(
-                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should fail due to hook\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should fail due to hook\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
                 )
               ),
             ]
@@ -980,7 +980,7 @@ const verifySpecOutputs = (
               expectExt.stringMatching(
                 // eslint-disable-next-line no-control-regex
                 new RegExp(
-                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should be skipped\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should be skipped\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
                 )
               ),
             ]
@@ -1102,14 +1102,14 @@ const verifySpecOutputs = (
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
           new RegExp(
-            `^\\x1B\\[32m +${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+            `^\\x1B\\[32m +${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should pass\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
           )
         ),
         "\x1B[0m  suite name\x1B[0m",
         expectExt.stringMatching(
           // eslint-disable-next-line no-control-regex
           new RegExp(
-            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m suite test should pass\\x1B\\[0m\\x1B\\[90m \\([0-9]+.+?\\)\\x1B\\[0m$`
+            `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m suite test should pass\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
           )
         ),
       ],
