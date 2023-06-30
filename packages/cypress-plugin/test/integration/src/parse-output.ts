@@ -207,9 +207,12 @@ const parseRunStarting = (
 
   expect(tableEntries["Cypress"]).toMatch(/^[0-9]+\.[0-9]+\.[0-9]+$/);
   expect(tableEntries["Browser"]).toMatch(
-    // Electron is much faster on Windows than Chrome, and only a tiny bit slower on Linux, so we
-    // just use it for all the integration tests.
-    /^Electron [0-9]+ \x1B\[90m\(headless\)\x1B\[39m$/
+    new RegExp(
+      `^${
+        // Chrome is slow to launch on Windows.
+        process.platform === "win32" ? "Edge" : "Chrome"
+      } [0-9]+ \x1B\\[90m\\(headless\\)\x1B\\[39m$`
+    )
   );
   expect(tableEntries["Node Version"]).toMatch(
     new RegExp(

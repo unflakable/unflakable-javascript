@@ -835,6 +835,9 @@ export const runTestCase = async (
     "--",
     // e2e/component
     `--${params.testMode}`,
+    // Chrome is faster than Electron, at least on Mac. However, it's much slower on Windows.
+    "--browser",
+    process.platform === "win32" ? "edge" : "chrome",
     ...(params.specNameStubs !== undefined
       ? [
           "--spec",
