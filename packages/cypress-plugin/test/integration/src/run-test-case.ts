@@ -855,8 +855,6 @@ export const runTestCase = async (
   const env = {
     ...params.envVars,
     DEBUG: process.env.TEST_DEBUG,
-    // Enable terminal colors for debug() output.
-    DEBUG_COLORS: "1",
     // Ensure Cypress prints output with TTY colors.
     FORCE_COLOR: "1",
     // NODE_OPTIONS: "--loader=testdouble",
