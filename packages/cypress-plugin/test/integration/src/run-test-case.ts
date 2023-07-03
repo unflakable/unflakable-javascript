@@ -770,12 +770,12 @@ export const runTestCase = async (
     multipleHookErrors,
   } = params;
 
-  const fetchMismatch = { error: undefined as unknown | undefined };
+  const testError = { error: undefined as unknown | undefined };
 
   const { unmatchedApiRequestEndpoint, unmatchedObjectStoreRequestEndpoint } =
     await addFetchMockExpectations(params, summaryTotals, (error) => {
-      if (fetchMismatch.error === undefined) {
-        fetchMismatch.error = error ?? new Error("undefined error");
+      if (testError.error === undefined) {
+        testError.error = error ?? new Error("undefined error");
       } else {
         console.error("Multiple failed fetch expectations", error);
       }
@@ -963,9 +963,13 @@ export const runTestCase = async (
           console.error(
             `Test timed out after ${TEST_TIMEOUT_MS}ms; killing Cypress process tree`
           );
-          treeKill(cypressChild.pid, "SIGKILL", () => {
-            reject(new Error(`Test timed out after ${TEST_TIMEOUT_MS}ms`));
-          });
+          const timeoutError = new Error(
+            `Test timed out after ${TEST_TIMEOUT_MS}ms`
+          );
+          if (testError.error === undefined) {
+            testError.error = timeoutError;
+          }
+          treeKill(cypressChild.pid, "SIGKILL", () => reject(timeoutError));
         }, TEST_TIMEOUT_MS);
 
         cypressChild.on("error", (err) => {
@@ -979,8 +983,8 @@ export const runTestCase = async (
       }
     );
 
-    if (fetchMismatch.error !== undefined) {
-      throw fetchMismatch.error;
+    if (testError.error !== undefined) {
+      throw testError.error;
     }
 
     verifyOutput(params, stdoutLines, summaryTotals, apiServer.port);
