@@ -192,7 +192,7 @@ jobs:
 
   cypress_windows_integration_tests:
     name: "Cypress ${{ matrix.cypress }} Windows Node ${{ matrix.node }} Integration Tests"
-    runs-on: windows-2022
+    runs-on: windows-2019
     # Cypress on Windows is slowwww...
     timeout-minutes: 90
     needs:
