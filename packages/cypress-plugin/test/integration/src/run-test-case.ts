@@ -888,7 +888,7 @@ export const runTestCase = async (
 
   const onOutput = (
     name: string,
-    onLine: (line: string) => void,
+    onLine: (line: string, now: Date) => void,
     escapeDebugOutput: boolean
   ): ((data: Buffer) => void) => {
     const debugExt = debug.extend(name);
@@ -899,12 +899,13 @@ export const runTestCase = async (
     // Don't eat the last line of output.
     cypressChild.on("exit", () => {
       if (pending.s !== "") {
-        onLine(pending.s);
+        onLine(pending.s, new Date());
         debugExt(escapeDebugOutput ? JSON.stringify(pending.s) : pending.s);
       }
     });
 
     return (data: Buffer): void => {
+      const now = new Date();
       // In case data terminates in the middle of a Unicode sequence, we need to use a stateful
       // TextDecoder with `stream: true`. Otherwise, invalid UTF-8 sequences at the end get
       // converted to 0xFFFD, which breaks the tests non-deterministically (i.e., makes them flaky).
@@ -914,7 +915,7 @@ export const runTestCase = async (
       // partial line that we want to defer until the next call.
       lines.slice(0, lines.length - 1).forEach((line, idx) => {
         const lineWithPending = idx === 0 ? pending.s + line : line;
-        onLine(lineWithPending);
+        onLine(lineWithPending, now);
         debugExt(
           escapeDebugOutput ? JSON.stringify(lineWithPending) : lineWithPending
         );
@@ -931,7 +932,9 @@ export const runTestCase = async (
     "data",
     onOutput(
       "stderr",
-      combinedLines.push.bind(combinedLines),
+      (line, now) => {
+        combinedLines.push(`${now.toISOString()} ${line}`);
+      },
       // Don't escape stderr output since it likely comes from debug output in the subprocess, which
       // is intended for human consumption and not for verifying test results.
       false
@@ -941,9 +944,9 @@ export const runTestCase = async (
     "data",
     onOutput(
       "stdout",
-      (line) => {
+      (line, now) => {
         stdoutLines.push(line);
-        combinedLines.push(line);
+        combinedLines.push(`${now.toISOString()} ${line}`);
       },
       // Escape special characters in debug output so that we can more easily understand test
       // failures related to unexpected output.
