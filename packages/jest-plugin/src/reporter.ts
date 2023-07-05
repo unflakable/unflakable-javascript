@@ -38,8 +38,10 @@ import {
   autoDetectGit,
   branchOverride,
   commitOverride,
+  getRepoRoot,
   loadApiKey,
   loadConfigSync,
+  loadGitRepo,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
 
@@ -209,7 +211,7 @@ export default class UnflakableReporter extends BaseReporter {
   private readonly apiKey: string;
   private readonly unflakableConfig: UnflakableConfig;
 
-  private readonly cwd: string;
+  private readonly rootDir: string;
   private readonly defaultReporter: DefaultReporter & {
     // Not defined in Jest < 26.2.
     onTestCaseResult?: (test: Test, testCaseResult: AssertionResult) => void;
@@ -218,7 +220,7 @@ export default class UnflakableReporter extends BaseReporter {
 
   constructor(globalConfig: Config.GlobalConfig) {
     super();
-    this.cwd = process.cwd();
+    this.rootDir = globalConfig.rootDir;
     this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
     this.apiKey = this.unflakableConfig.enabled ? loadApiKey() : "";
 
@@ -412,6 +414,10 @@ export default class UnflakableReporter extends BaseReporter {
     unflakableConfig: UnflakableConfig
   ): Promise<void> {
     const testSuiteId = unflakableConfig.testSuiteId;
+
+    const git = unflakableConfig.gitAutoDetect ? await loadGitRepo() : null;
+    const repoRoot = git !== null ? await getRepoRoot(git) : this.rootDir;
+
     const results = Object.entries(
       groupBy(
         aggregatedResults.testResults,
@@ -428,7 +434,7 @@ export default class UnflakableReporter extends BaseReporter {
       )
         .map(
           ([, assertionResults]): TestRunRecord => ({
-            filename: path.relative(this.cwd, testFilePath),
+            filename: path.relative(repoRoot, testFilePath),
             name: testKey(assertionResults[0]),
             attempts: assertionResults
               .map((testResult: UnflakableAssertionResult) => ({
@@ -462,13 +468,14 @@ export default class UnflakableReporter extends BaseReporter {
       commit = commitOverride.value;
 
     if (
-      unflakableConfig.gitAutoDetect &&
+      git !== null &&
       (branch === undefined ||
         branch.length === 0 ||
         commit === undefined ||
         commit.length === 0)
     ) {
       const { branch: gitBranch, commit: gitCommit } = await autoDetectGit(
+        git,
         this.log.bind(this)
       );
 

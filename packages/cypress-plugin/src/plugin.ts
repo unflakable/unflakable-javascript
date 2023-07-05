@@ -15,6 +15,7 @@ import {
   branchOverride,
   commitOverride,
   isTestQuarantined,
+  loadGitRepo,
   normalizeTestName,
   toPosix,
   UnflakableConfig,
@@ -477,15 +478,19 @@ ${
         commit === undefined ||
         commit.length === 0)
     ) {
-      const { branch: gitBranch, commit: gitCommit } = await autoDetectGit(
-        console.error.bind(console)
-      );
+      const git = await loadGitRepo();
+      if (git !== null) {
+        const { branch: gitBranch, commit: gitCommit } = await autoDetectGit(
+          git,
+          console.error.bind(console)
+        );
 
-      if (branch === undefined || branch.length === 0) {
-        branch = gitBranch;
-      }
-      if (commit === undefined || commit.length === 0) {
-        commit = gitCommit;
+        if (branch === undefined || branch.length === 0) {
+          branch = gitBranch;
+        }
+        if (commit === undefined || commit.length === 0) {
+          commit = gitCommit;
+        }
       }
     }
 

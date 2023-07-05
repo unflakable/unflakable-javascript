@@ -84,22 +84,20 @@ export const loadGitRepo = async (): Promise<SimpleGit | null> => {
 };
 
 export const autoDetectGit = async (
+  git: SimpleGit,
   log: (message: string) => void
 ): Promise<{
   branch: string | undefined;
   commit: string | undefined;
 }> => {
   try {
-    const git = await loadGitRepo();
-    if (git !== null) {
-      const commit = await getCurrentGitCommit(git);
-      const branch = await getCurrentGitBranch(git, commit);
+    const commit = await getCurrentGitCommit(git);
+    const branch = await getCurrentGitBranch(git, commit);
 
-      return {
-        branch,
-        commit,
-      };
-    }
+    return {
+      branch,
+      commit,
+    };
   } catch (e) {
     log(
       `WARNING: Unflakable failed to auto-detect current git branch and commit: ${

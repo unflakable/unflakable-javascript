@@ -6,6 +6,7 @@ import * as cosmiconfig from "cosmiconfig";
 import type { OptionsSync } from "cosmiconfig";
 import { FetchMockSandbox, MockCall } from "fetch-mock";
 import jestPackage from "jest/package.json";
+import path from "path";
 
 const throwUnimplemented = (): never => {
   throw new Error("unimplemented");
@@ -82,6 +83,7 @@ export const integrationTest = async (testCase: TestCase): Promise<void> => {
       expectedCommit: "MOCK_COMMIT",
       expectedFailureRetries: 2,
       expectedFlakeTestNameSuffix: "",
+      expectedRepoRelativePathPrefix: "test/integration-input/",
       expectedSuiteId: "MOCK_SUITE_ID",
       expectPluginToBeEnabled: true,
       expectResultsToBeUploaded: true,
@@ -98,6 +100,9 @@ export const integrationTest = async (testCase: TestCase): Promise<void> => {
         refs: [{ sha: "MOCK_COMMIT", refName: "refs/heads/MOCK_BRANCH" }],
         commit: "MOCK_COMMIT",
         isRepo: true,
+        // Mock the git repo root as packages/jest-plugin so that we're for sure testing the
+        // mocked output and not using real git commands.
+        repoRoot: path.resolve("../.."),
       },
       quarantineFlake: false,
       skipFailures: false,

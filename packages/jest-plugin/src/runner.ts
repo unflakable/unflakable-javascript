@@ -26,10 +26,12 @@ import chalk from "chalk";
 import escapeStringRegexp from "escape-string-regexp";
 import { debug as _debug } from "debug";
 import {
+  getRepoRoot,
   getTestSuiteManifest,
   isTestQuarantined,
   loadApiKey,
   loadConfigSync,
+  loadGitRepo,
   QuarantineMode,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
@@ -41,23 +43,23 @@ type TestFailure = { test: Test; testResult: TestResult };
 const wrapOnResult =
   ({
     attempt,
-    cwd,
     manifest,
     onResult,
     quarantineMode,
+    repoRoot,
     testFailures,
   }: {
     attempt: number;
-    cwd: string;
     manifest: TestSuiteManifest | undefined;
     onResult: OnTestSuccess;
     quarantineMode: QuarantineMode;
+    repoRoot: string;
     testFailures: TestFailure[];
   }) =>
   async (test: Test, testResult: TestResult): Promise<void> => {
     const testResults = testResult.testResults.map(
       (assertionResult: AssertionResult): UnflakableAssertionResult => {
-        const testFilename = path.relative(cwd, test.path);
+        const testFilename = path.relative(repoRoot, test.path);
         if (assertionResult.status === FAILED) {
           if (manifest === undefined) {
             debug(
@@ -67,19 +69,24 @@ const wrapOnResult =
             debug(
               "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
             );
-          } else if (
-            isTestQuarantined(manifest, testFilename, testKey(assertionResult))
-          ) {
+          } else {
+            const isQuarantined = isTestQuarantined(
+              manifest,
+              testFilename,
+              testKey(assertionResult)
+            );
             debug(
-              `Quarantining failed test ${JSON.stringify(
+              `Test is ${
+                isQuarantined ? "" : "NOT "
+              }quarantined: ${JSON.stringify(
                 testKey(assertionResult)
-              )} from file ${testFilename}`
+              )} in file ${testFilename}`
             );
             return {
               ...assertionResult,
               // Use a separate field instead of adding a new `status` to avoid confusing third-
               // party code that consumes the `Status` enum.
-              _unflakableIsQuarantined: true,
+              _unflakableIsQuarantined: isQuarantined,
             };
           }
         }
@@ -127,13 +134,11 @@ const wrapOnResult =
 
 class UnflakableRunner {
   private readonly context?: TestRunnerContext;
-  private readonly cwd: string;
   private readonly globalConfig: Config.GlobalConfig;
   private readonly manifest: Promise<TestSuiteManifest | undefined>;
   private readonly unflakableConfig: UnflakableConfig;
 
   constructor(globalConfig: Config.GlobalConfig, context?: TestRunnerContext) {
-    this.cwd = process.cwd();
     this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
 
     const testSuiteId = this.unflakableConfig.enabled
@@ -166,6 +171,16 @@ class UnflakableRunner {
     onFailure: OnTestFailure,
     options: TestRunnerOptions
   ): Promise<void> {
+    const repoRoot =
+      this.unflakableConfig.enabled && this.unflakableConfig.gitAutoDetect
+        ? await (async (): Promise<string> => {
+            const git = await loadGitRepo();
+            return git !== null
+              ? await getRepoRoot(git)
+              : this.globalConfig.rootDir;
+          })()
+        : this.globalConfig.rootDir;
+
     let testFailures = await this.runTestsImpl(
       tests,
       watcher,
@@ -173,7 +188,7 @@ class UnflakableRunner {
       onResult,
       onFailure,
       options,
-      this.cwd,
+      repoRoot,
       this.globalConfig,
       this.context,
       this.unflakableConfig,
@@ -245,7 +260,7 @@ class UnflakableRunner {
                 onResult,
                 onFailure,
                 options,
-                this.cwd,
+                repoRoot,
                 filteredGlobalConfig,
                 this.context,
                 this.unflakableConfig,
@@ -266,7 +281,7 @@ class UnflakableRunner {
     onResult: OnTestSuccess,
     onFailure: OnTestFailure,
     options: TestRunnerOptions,
-    cwd: string,
+    repoRoot: string,
     globalConfig: Config.GlobalConfig,
     context: TestRunnerContext | undefined,
     unflakableConfig: UnflakableConfig,
@@ -278,10 +293,10 @@ class UnflakableRunner {
     const onResultImpl = this.unflakableConfig.enabled
       ? wrapOnResult({
           attempt,
-          cwd,
           manifest,
           onResult,
           quarantineMode: unflakableConfig.quarantineMode,
+          repoRoot,
           testFailures,
         })
       : onResult;
@@ -396,7 +411,7 @@ class UnflakableRunner {
       // Then, we run the remaining test files normally below.
       await tests
         .reduce((promise, test) => {
-          const relPath = path.relative(cwd, test.path);
+          const relPath = path.relative(repoRoot, test.path);
           const quarantinedTestsInFile = quarantinedTestsByFile[relPath];
           if (
             quarantinedTestsInFile !== undefined &&
@@ -446,7 +461,8 @@ class UnflakableRunner {
         }, Promise.resolve())
         .then(() => {
           const normalTestFiles = tests.filter(
-            (test) => !(path.relative(cwd, test.path) in quarantinedTestsByFile)
+            (test) =>
+              !(path.relative(repoRoot, test.path) in quarantinedTestsByFile)
           );
           if (normalTestFiles.length > 0) {
             debug(

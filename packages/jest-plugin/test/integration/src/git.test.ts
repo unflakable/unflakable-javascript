@@ -5,6 +5,7 @@ import {
   integrationTest,
   integrationTestSuite,
 } from "./common";
+import path from "path";
 
 integrationTestSuite(() => {
   it("no git repo", () =>
@@ -12,6 +13,8 @@ integrationTestSuite(() => {
       params: {
         expectedBranch: undefined,
         expectedCommit: undefined,
+        // Without a repo, paths are relative to the Jest rootDir.
+        expectedRepoRelativePathPrefix: "",
         git: {
           isRepo: false,
         },
@@ -40,6 +43,7 @@ integrationTestSuite(() => {
               refName: "refs/remote/pull/MOCK_PR_NUMBER/merge",
             },
           ],
+          repoRoot: path.resolve("../.."),
         },
         expectedCommit: "MOCK_PR_COMMIT",
         expectedBranch: "pull/MOCK_PR_NUMBER/merge",
@@ -70,6 +74,8 @@ integrationTestSuite(() => {
         },
         expectedBranch: undefined,
         expectedCommit: undefined,
+        // Without a repo, paths are relative to the Jest rootDir.
+        expectedRepoRelativePathPrefix: "",
       },
       expectedExitCode: 1,
       expectedResults: defaultExpectedResults,

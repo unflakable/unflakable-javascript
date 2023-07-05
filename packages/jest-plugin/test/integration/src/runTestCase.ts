@@ -27,6 +27,9 @@ import * as cosmiconfig from "cosmiconfig";
 import { CosmiconfigResult } from "cosmiconfig/dist/types";
 import { gunzipSync } from "zlib";
 import { UnflakableConfig } from "@unflakable/plugins-common";
+import _debug from "debug";
+
+const debug = _debug("unflakable:integration:run-test-case");
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-jest-plugin/(?:[-0-9.]|alpha|beta)+ \\(Jest [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
@@ -50,6 +53,7 @@ export type SimpleGitMockParams =
       commit: string;
       isRepo: true;
       refs: SimpleGitMockRef[];
+      repoRoot: string;
     };
 
 export type TestCaseParams = {
@@ -61,6 +65,7 @@ export type TestCaseParams = {
   expectedFailureRetries: number;
   expectedFlakeTestNameSuffix: string;
   expectedSuiteId: string;
+  expectedRepoRelativePathPrefix: string;
   expectPluginToBeEnabled: boolean;
   expectResultsToBeUploaded: boolean;
   expectQuarantinedTestsToBeQuarantined: boolean;
@@ -79,44 +84,52 @@ export type TestCaseParams = {
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
 
 const mockSimpleGit = (params: SimpleGitMockParams): void => {
-  (simpleGit as jest.Mock).mockImplementationOnce(
-    () =>
-      ({
-        checkIsRepo: jest.fn(
-          () => Promise.resolve(params.isRepo) as GitResponse<boolean>
-        ),
-        revparse: jest.fn((options: string | TaskOptions) => {
-          if (!params.isRepo) {
-            throw new Error("not a git repository");
-          } else if (
-            Array.isArray(options) &&
-            options.length === 2 &&
-            options[0] === "--abbrev-ref"
-          ) {
-            return Promise.resolve(
-              params.abbreviatedRefs[options[1]] ?? "HEAD"
-            ) as GitResponse<string>;
-          } else if (options === "HEAD") {
-            return Promise.resolve(params.commit) as GitResponse<string>;
-          } else {
-            throw new Error(`unexpected options ${options.toString()}`);
-          }
-        }),
-        raw: jest.fn((options: string | TaskOptions) => {
-          if (!params.isRepo) {
-            throw new Error("not a git repository");
-          } else if (deepEqual(options, ["show-ref"])) {
-            return Promise.resolve(
-              (params.refs ?? [])
-                .map((mockRef) => `${mockRef.sha} ${mockRef.refName}`)
-                .join("\n") + "\n"
-            ) as GitResponse<string>;
-          } else {
-            throw new Error(`unexpected options ${options.toString()}`);
-          }
-        }),
-      } as unknown as SimpleGit)
-  );
+  debug("Mocking simple-git with params %o", params);
+  const mockSimpleGitImpl = {
+    checkIsRepo: jest.fn(
+      () => Promise.resolve(params.isRepo) as GitResponse<boolean>
+    ),
+    revparse: jest.fn((options: string | TaskOptions) => {
+      if (!params.isRepo) {
+        throw new Error("not a git repository");
+      } else if (
+        Array.isArray(options) &&
+        options.length === 2 &&
+        options[0] === "--abbrev-ref"
+      ) {
+        return Promise.resolve(
+          params.abbreviatedRefs[options[1]] ?? "HEAD"
+        ) as GitResponse<string>;
+      } else if (
+        Array.isArray(options) &&
+        options.length === 1 &&
+        options[0] === "--show-toplevel"
+      ) {
+        // Treat the current working directory as the repo root.
+        debug(`Returning mock git repo root ${params.repoRoot}`);
+        return Promise.resolve(params.repoRoot);
+      } else if (options === "HEAD") {
+        return Promise.resolve(params.commit) as GitResponse<string>;
+      } else {
+        throw new Error(`unexpected options ${options.toString()}`);
+      }
+    }),
+    raw: jest.fn((options: string | TaskOptions) => {
+      if (!params.isRepo) {
+        throw new Error("not a git repository");
+      } else if (deepEqual(options, ["show-ref"])) {
+        return Promise.resolve(
+          (params.refs ?? [])
+            .map((mockRef) => `${mockRef.sha} ${mockRef.refName}`)
+            .join("\n") + "\n"
+        ) as GitResponse<string>;
+      } else {
+        throw new Error(`unexpected options ${options.toString()}`);
+      }
+    }),
+  } as unknown as SimpleGit;
+
+  (simpleGit as jest.Mock).mockImplementation(() => mockSimpleGitImpl);
 };
 
 // These are the chalk-formatted strings that include console color codes.
@@ -159,6 +172,9 @@ const testResultRegexMatch = (
     }( \\([0-9]+ ms\\))?\u001b\\[22m$`,
     ""
   );
+
+const specRepoPath = (params: TestCaseParams, specNameStub: string): string =>
+  `${params.expectedRepoRelativePathPrefix}src/${specNameStub}.test.ts`;
 
 export type ResultCounts = {
   passedSuites: number;
@@ -469,25 +485,25 @@ const countResults = ({
   }));
 };
 
-const uploadResultsMatcher =
-  (
-    {
-      expectedBranch,
-      expectedCommit,
-      expectedFailureRetries,
-      expectedFlakeTestNameSuffix,
-      expectQuarantinedTestsToBeQuarantined,
-      expectQuarantinedTestsToBeSkipped,
-      failToFetchManifest,
-      quarantineFlake,
-      skipFailures,
-      skipFlake,
-      skipQuarantined,
-      testNamePattern,
-    }: TestCaseParams,
-    results: ResultCounts
-  ): MockMatcher =>
-  (_url, { body, headers }) => {
+const uploadResultsMatcher = (
+  params: TestCaseParams,
+  results: ResultCounts
+): MockMatcher => {
+  const {
+    expectedBranch,
+    expectedCommit,
+    expectedFailureRetries,
+    expectedFlakeTestNameSuffix,
+    expectQuarantinedTestsToBeQuarantined,
+    expectQuarantinedTestsToBeSkipped,
+    failToFetchManifest,
+    quarantineFlake,
+    skipFailures,
+    skipFlake,
+    skipQuarantined,
+    testNamePattern,
+  } = params;
+  return (_url, { body, headers }) => {
     const parsedBody = JSON.parse(
       gunzipSync(body as string).toString()
     ) as CreateTestSuiteRunInlineRequest;
@@ -534,7 +550,7 @@ const uploadResultsMatcher =
             ? ([] as TestRunRecord[])
             : ([
                 {
-                  filename: "../integration-input/src/fail.test.ts",
+                  filename: specRepoPath(params, "fail"),
                   name: ["describe block", "should ([escape regex]?.*$ fail"],
                   attempts: Array<TestRunAttemptRecord>(
                     expectedFailureRetries + 1
@@ -555,7 +571,7 @@ const uploadResultsMatcher =
             ? []
             : [
                 {
-                  filename: "../integration-input/src/flake.test.ts",
+                  filename: specRepoPath(params, "flake"),
                   name: [
                     `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
                       0,
@@ -594,7 +610,7 @@ const uploadResultsMatcher =
             ? []
             : [
                 {
-                  filename: "../integration-input/src/flake.test.ts",
+                  filename: specRepoPath(params, "flake"),
                   name: [
                     `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
                       0,
@@ -630,7 +646,7 @@ const uploadResultsMatcher =
             ? []
             : ([
                 {
-                  filename: "../integration-input/src/mixed.test.ts",
+                  filename: specRepoPath(params, "mixed"),
                   name: ["mixed", "mixed: should be quarantined"],
                   attempts: Array<TestRunAttemptRecord>(
                     expectedFailureRetries + 1
@@ -650,7 +666,7 @@ const uploadResultsMatcher =
             ? []
             : ([
                 {
-                  filename: "../integration-input/src/mixed.test.ts",
+                  filename: specRepoPath(params, "mixed"),
                   name: ["mixed", "mixed: should fail"],
                   attempts: Array<TestRunAttemptRecord>(
                     expectedFailureRetries + 1
@@ -664,7 +680,7 @@ const uploadResultsMatcher =
           "mixed mixed: should pass".match(testNamePattern) === null
             ? [
                 {
-                  filename: "../integration-input/src/mixed.test.ts",
+                  filename: specRepoPath(params, "mixed"),
                   name: ["mixed", "mixed: should pass"],
                   attempts: [
                     {
@@ -679,7 +695,7 @@ const uploadResultsMatcher =
           "should pass".match(testNamePattern) !== null
             ? [
                 {
-                  filename: "../integration-input/src/pass.test.ts",
+                  filename: specRepoPath(params, "pass"),
                   name: ["should pass"],
                   attempts: [
                     {
@@ -698,7 +714,7 @@ const uploadResultsMatcher =
             ? []
             : ([
                 {
-                  filename: "../integration-input/src/quarantined.test.ts",
+                  filename: specRepoPath(params, "quarantined"),
                   name: ["describe block", "should be quarantined"],
                   attempts: Array<TestRunAttemptRecord>(
                     expectedFailureRetries + 1
@@ -728,6 +744,7 @@ const uploadResultsMatcher =
     );
     return true;
   };
+};
 
 const addFetchMockExpectations = (
   params: TestCaseParams,
@@ -767,19 +784,19 @@ const addFetchMockExpectations = (
             quarantined_tests: [
               {
                 test_id: "TEST_QUARANTINED",
-                filename: "../integration-input/src/quarantined.test.ts",
+                filename: specRepoPath(params, "quarantined"),
                 name: ["describe block", "should be quarantined"],
               },
               {
                 test_id: "TEST_QUARANTINED2",
-                filename: "../integration-input/src/mixed.test.ts",
+                filename: specRepoPath(params, "mixed"),
                 name: ["mixed", "mixed: should be quarantined"],
               },
               ...(quarantineFlake
                 ? [
                     {
                       test_id: "TEST_FLAKE",
-                      filename: "../integration-input/src/flake.test.ts",
+                      filename: specRepoPath(params, "flake"),
                       name: [
                         `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
                           0,
@@ -789,7 +806,7 @@ const addFetchMockExpectations = (
                     },
                     {
                       test_id: "TEST_FLAKE",
-                      filename: "../integration-input/src/flake.test.ts",
+                      filename: specRepoPath(params, "flake"),
                       name: [
                         `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
                           0,
@@ -1363,10 +1380,7 @@ export const runTestCase = async (
         "--runner",
         "@unflakable/jest-plugin/dist/runner",
         ...(skipFailures
-          ? [
-              "--testPathIgnorePatterns",
-              "../integration-input/src/invalid\\.test\\.ts",
-            ]
+          ? ["--testPathIgnorePatterns", "<rootDir>/src/invalid\\.test\\.ts"]
           : []),
         ...(testNamePattern !== undefined
           ? ["--testNamePattern", testNamePattern]
