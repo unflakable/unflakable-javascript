@@ -223,6 +223,14 @@ export const setCosmiconfig = (config: typeof cosmiconfig): void => {
   ).__unflakableCosmiconfig = config;
 };
 
+export const setCosmiconfigSync = (config: typeof cosmiconfigSync): void => {
+  (
+    globalThis as {
+      __unflakableCosmiconfigSync?: typeof cosmiconfigSync;
+    }
+  ).__unflakableCosmiconfigSync = config;
+};
+
 const loadConfigFile = async (
   searchFrom: string
 ): Promise<UnflakableConfigFile> => {
@@ -254,7 +262,13 @@ export const loadConfig = (
   );
 
 const loadConfigFileSync = (searchFrom: string): UnflakableConfigFile => {
-  const configExplorer = cosmiconfigSync("unflakable", {
+  const configExplorer = (
+    (
+      globalThis as {
+        __unflakableCosmiconfigSync?: typeof cosmiconfigSync;
+      }
+    ).__unflakableCosmiconfigSync ?? cosmiconfigSync
+  )("unflakable", {
     searchPlaces: SEARCH_PLACES,
   });
   debug(`Searching for config from directory \`${searchFrom}\` upward`);

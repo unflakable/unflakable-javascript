@@ -12,5 +12,8 @@ module.exports = {
     ],
   },
 
+  // NB: This should be greater than TEST_TIMEOUT_MS used by the watchdog in runTestCase().
+  testTimeout: 40000,
+
   verbose: true,
 };

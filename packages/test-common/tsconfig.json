@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // Remove DOM types and support 2-argument Error constructor that takes a cause.
+    "lib": ["ES2022"]
+  },
+  "include": [".eslintrc.js", "rollup.config.mjs"]
+}

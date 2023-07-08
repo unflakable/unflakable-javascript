@@ -1,9 +1,0 @@
-{
-  "extends": "../../../../tsconfig.json",
-  "compilerOptions": {
-    // Removes DOM types.
-    "lib": ["ES2019"],
-    "types": ["node"]
-  },
-  "include": [".eslintrc.js", "rollup.config.mjs"]
-}

@@ -32,8 +32,9 @@
     "build:jest-plugin": "yarn workspace @unflakable/jest-plugin build",
     "build:plugins-common": "yarn workspace @unflakable/plugins-common build",
     "typecheck:scripts": "tsc --noEmit --types node -p scripts",
-    "build:tests": "yarn build:cypress-tests && yarn typecheck:jest-tests",
-    "build:cypress-tests": "yarn workspace cypress-integration-common build && yarn workspace cypress-integration typecheck && yarn workspace cypress-integration-input typecheck && yarn workspace cypress-integration-input-esm typecheck",
+    "build:test-common": "yarn workspace unflakable-test-common build",
+    "build:tests": "yarn build:test-common && yarn build:cypress-tests && yarn typecheck:jest-tests",
+    "build:cypress-tests": "yarn workspace cypress-integration typecheck && yarn workspace cypress-integration-input typecheck && yarn workspace cypress-integration-input-esm typecheck",
     "typecheck:jest-tests": "yarn workspace jest-integration typecheck && yarn workspace jest-integration-input typecheck",
     "lint": "eslint .",
     "prettier": "prettier --write .",
@@ -44,7 +45,6 @@
   "workspaces": [
     "packages/*",
     "packages/*/test/integration",
-    "packages/*/test/integration-common",
     "packages/*/test/integration-input",
     "packages/*/test/integration-input-esm",
     "packages/*/test/integration-input-manual"

@@ -218,8 +218,8 @@ class UnflakableRunner {
             0
           )} failed test(s) from ${testFailures.length} file(s) -- ${
             attempts - attempt - 1
-          } ${attempts - attempt - 1 === 1 ? "retry" : "retries"} remaining\n`
-        )
+          } ${attempts - attempt - 1 === 1 ? "retry" : "retries"} remaining`
+        ) + "\n"
       );
 
       // Similar to how we skip quarantined tests when quarantineMode is "skip_tests", we need to

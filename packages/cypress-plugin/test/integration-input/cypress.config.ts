@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
-import { registerSimpleGitMock } from "cypress-integration-common/dist/git";
-import { registerCosmiconfigMock } from "cypress-integration-common/dist/config";
+import { registerSimpleGitMock } from "unflakable-test-common/dist/git";
+import { registerCosmiconfigMock } from "unflakable-test-common/dist/config";
 import { defineConfig } from "cypress";
 // This intentionally uses the CommonJS relative import syntax that doesn't start with `./` in
 // order to test that our inclusion of the user config file resolves relative path imports (via

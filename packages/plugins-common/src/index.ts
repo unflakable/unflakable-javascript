@@ -9,6 +9,7 @@ export {
   loadConfig,
   loadConfigSync,
   setCosmiconfig,
+  setCosmiconfigSync,
 } from "./config";
 export {
   EnvVar,

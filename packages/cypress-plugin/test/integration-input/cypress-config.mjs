@@ -3,8 +3,8 @@
 import devtools from "./config-js/devtools.js";
 import tasks from "./config-js/tasks.js";
 import webpackConfig from "./config-js/webpack.js";
-import { registerSimpleGitMock } from "cypress-integration-common/dist/git.js";
-import { registerCosmiconfigMock } from "cypress-integration-common/dist/config.js";
+import { registerSimpleGitMock } from "unflakable-test-common/dist/git.js";
+import { registerCosmiconfigMock } from "unflakable-test-common/dist/config.js";
 
 /**
  * @type {Cypress.ConfigOptions}

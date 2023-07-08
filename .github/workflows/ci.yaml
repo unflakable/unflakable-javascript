@@ -153,9 +153,6 @@ jobs:
           mv package-new.json package.json
           yarn install --no-immutable
 
-      - name: Build test dependencies
-        run: yarn build:plugins-common && yarn build:cypress-tests
-
       - name: Set Cypress version
         env:
           CYPRESS_INSTALL_BINARY: "0"
@@ -165,6 +162,9 @@ jobs:
 
       - name: Install Cypress binary
         run: yarn workspace cypress-integration exec cypress install
+
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
 
       - name: Test
         env:
@@ -261,9 +261,6 @@ jobs:
           mv package-new.json package.json
           yarn install --no-immutable
 
-      - name: Build test dependencies
-        run: yarn build:plugins-common && yarn build:cypress-tests
-
       - name: Set Cypress version
         env:
           CYPRESS_INSTALL_BINARY: "0"
@@ -273,6 +270,9 @@ jobs:
 
       - name: Install Cypress binary
         run: yarn workspace cypress-integration exec cypress install
+
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
 
       - name: Test
         env:
@@ -379,9 +379,18 @@ jobs:
         if: ${{ startsWith(matrix.jest, '25.')  }}
         run: yarn set resolution "chalk@npm:^3.0.0 || ^4.0.0" 3.0
 
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common
+
       - name: Test
         env:
-          DEBUG: unflakable:*
+          # Enable debug logs within the jest-plugin/test/integration Jest tests that invoke Jest
+          # on the jest-plugin/test/integration-input test cases. WARNING: these are very verbose
+          # but are useful for seeing the raw chalk terminal codes.
+          # DEBUG: unflakable:*
+
+          # Enable debug logs within the Jest plugin.
+          TEST_DEBUG: "unflakable:*"
         run: |
           if [ "${{ github.repository }}" == "unflakable/unflakable-javascript" ]; then
             export UNFLAKABLE_SUITE_ID=29KWCuK12VnU7pkpvWgrGS0woAX

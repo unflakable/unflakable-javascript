@@ -40,7 +40,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/core@npm:^7.0.0, @babel/core@npm:^7.11.6, @babel/core@npm:^7.12.3, @babel/core@npm:^7.21.5":
+"@babel/core@npm:^7.11.6, @babel/core@npm:^7.12.3, @babel/core@npm:^7.21.5":
   version: 7.22.1
   resolution: "@babel/core@npm:7.22.1"
   dependencies:
@@ -1307,7 +1307,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.8.4":
+"@babel/runtime@npm:^7.8.4":
   version: 7.17.2
   resolution: "@babel/runtime@npm:7.17.2"
   dependencies:
@@ -2829,12 +2829,12 @@ __metadata:
   linkType: hard
 
 "@types/jest@npm:25.1.0 - 29, @types/jest@npm:^29.5.2":
-  version: 29.5.2
-  resolution: "@types/jest@npm:29.5.2"
+  version: 29.5.3
+  resolution: "@types/jest@npm:29.5.3"
   dependencies:
     expect: ^29.0.0
     pretty-format: ^29.0.0
-  checksum: 7d205599ea3cccc262bad5cc173d3242d6bf8138c99458509230e4ecef07a52d6ddcde5a1dbd49ace655c0af51d2dbadef3748697292ea4d86da19d9e03e19c0
+  checksum: e36bb92e0b9e5ea7d6f8832baa42f087fc1697f6cd30ec309a07ea4c268e06ec460f1f0cfd2581daf5eff5763475190ec1ad8ac6520c49ccfe4f5c0a48bfa676
   languageName: node
   linkType: hard
 
@@ -4616,13 +4616,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"core-js@npm:^3.0.0":
-  version: 3.21.1
-  resolution: "core-js@npm:3.21.1"
-  checksum: d68eddd831340ad5b24ac29c72fda022a43b17f194c4278b6b875a843283d316502cb4abd07f28631d6ebc4387f66aa06e2b1b3c8fd7e08096a751b5c63f6889
-  languageName: node
-  linkType: hard
-
 "core-util-is@npm:1.0.2":
   version: 1.0.2
   resolution: "core-util-is@npm:1.0.2"
@@ -4720,24 +4713,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cypress-integration-common@workspace:^, cypress-integration-common@workspace:packages/cypress-plugin/test/integration-common":
-  version: 0.0.0-use.local
-  resolution: "cypress-integration-common@workspace:packages/cypress-plugin/test/integration-common"
-  dependencies:
-    "@rollup/plugin-commonjs": ^24.1.0
-    "@rollup/plugin-node-resolve": ^15.0.2
-    "@rollup/plugin-typescript": ^11.1.1
-    "@unflakable/plugins-common": "workspace:^"
-    debug: ^4.3.3
-    expect: ^29.5.0
-    rimraf: ^5.0.1
-    rollup: ^3.21.1
-    rollup-plugin-dts: ^5.3.0
-    simple-git: ^3.16.0
-    typescript: ^4.9.5
-  languageName: unknown
-  linkType: soft
-
 "cypress-integration-input-esm@workspace:packages/cypress-plugin/test/integration-input-esm":
   version: 0.0.0-use.local
   resolution: "cypress-integration-input-esm@workspace:packages/cypress-plugin/test/integration-input-esm"
@@ -4746,7 +4721,6 @@ __metadata:
     "@types/react-dom": ^18.2.4
     "@unflakable/cypress-plugin": "workspace:^"
     cypress: 10 - 12
-    cypress-integration-common: "workspace:^"
     mocha: =7.0.1
     mocha-junit-reporter: ^2.2.0
     process: ^0.11.10
@@ -4754,6 +4728,7 @@ __metadata:
     react-dom: ^18.2.0
     ts-loader: ^9.4.3
     typescript: ^4.9.5
+    unflakable-test-common: "workspace:^"
     webpack: ^5.84.1
   languageName: unknown
   linkType: soft
@@ -4766,7 +4741,6 @@ __metadata:
     "@types/react-dom": ^18.2.4
     "@unflakable/cypress-plugin": "workspace:^"
     cypress: 10 - 12
-    cypress-integration-common: "workspace:^"
     cypress-multi-reporters: ^1.6.3
     mocha: =7.0.1
     mocha-junit-reporter: ^2.2.0
@@ -4775,6 +4749,7 @@ __metadata:
     react-dom: ^18.2.0
     ts-loader: ^9.4.3
     typescript: ^4.9.5
+    unflakable-test-common: "workspace:^"
     webpack: ^5.84.1
   languageName: unknown
   linkType: soft
@@ -4787,7 +4762,6 @@ __metadata:
     "@types/react-dom": ^18.2.4
     "@unflakable/cypress-plugin": "workspace:^"
     cypress: 10 - 12
-    cypress-integration-common: "workspace:^"
     mocha: =7.0.1
     mocha-junit-reporter: ^2.2.0
     process: ^0.11.10
@@ -4795,6 +4769,7 @@ __metadata:
     react-dom: ^18.2.0
     ts-loader: ^9.4.3
     typescript: ^4.9.5
+    unflakable-test-common: "workspace:^"
     webpack: ^5.84.1
   languageName: unknown
   linkType: soft
@@ -4808,16 +4783,15 @@ __metadata:
     "@unflakable/js-api": "workspace:^"
     "@unflakable/plugins-common": "workspace:^"
     cypress: 10 - 12
-    cypress-integration-common: "workspace:^"
     debug: ^4.3.3
     escape-string-regexp: ^4.0.0
     jest: ^29.5.0
     jest-environment-node: ^29.5.0
     jest-expect-message: ^1.1.3
     mockttp: ^3.7.5
-    tree-kill: ^1.2.2
     ts-jest: ^29.1.0
     typescript: ^4.9.5
+    unflakable-test-common: "workspace:^"
   languageName: unknown
   linkType: soft
 
@@ -5745,7 +5719,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expect@npm:^29.0.0, expect@npm:^29.5.0":
+"expect@npm:25.1.0 - 29, expect@npm:^29.0.0, expect@npm:^29.5.0":
   version: 29.5.0
   resolution: "expect@npm:29.5.0"
   dependencies:
@@ -5907,43 +5881,6 @@ __metadata:
   dependencies:
     pend: ~1.2.0
   checksum: c8585fd5713f4476eb8261150900d2cb7f6ff2d87f8feb306ccc8a1122efd152f1783bdb2b8dc891395744583436bfd8081d8e63ece0ec8687eeefea394d4ff2
-  languageName: node
-  linkType: hard
-
-"fetch-mock-jest@npm:^1.5.1":
-  version: 1.5.1
-  resolution: "fetch-mock-jest@npm:1.5.1"
-  dependencies:
-    fetch-mock: ^9.11.0
-  peerDependencies:
-    node-fetch: "*"
-  peerDependenciesMeta:
-    node-fetch:
-      optional: true
-  checksum: 371b1c4a1fb1cf507ace0bf1a505ae0a9b0184ef0edfa6225c3d93866ba80fa89b47d412eb077315007e0a73028e2ed5be4b88b85e992e53a834ecbd44c4a3be
-  languageName: node
-  linkType: hard
-
-"fetch-mock@npm:^9.11.0":
-  version: 9.11.0
-  resolution: "fetch-mock@npm:9.11.0"
-  dependencies:
-    "@babel/core": ^7.0.0
-    "@babel/runtime": ^7.0.0
-    core-js: ^3.0.0
-    debug: ^4.1.1
-    glob-to-regexp: ^0.4.0
-    is-subset: ^0.1.1
-    lodash.isequal: ^4.5.0
-    path-to-regexp: ^2.2.1
-    querystring: ^0.2.0
-    whatwg-url: ^6.5.0
-  peerDependencies:
-    node-fetch: "*"
-  peerDependenciesMeta:
-    node-fetch:
-      optional: true
-  checksum: debc4dd83bcda79b0aa71c38d08da6036906cdc49393343eb3426112314a7e57557255664f745d2e3f0b9b2a6e852bd3a564ae3f08332c27e422d3441bb865bd
   languageName: node
   linkType: hard
 
@@ -6375,7 +6312,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob-to-regexp@npm:^0.4.0, glob-to-regexp@npm:^0.4.1":
+"glob-to-regexp@npm:^0.4.1":
   version: 0.4.1
   resolution: "glob-to-regexp@npm:0.4.1"
   checksum: e795f4e8f06d2a15e86f76e4d92751cf8bbfcf0157cea5c2f0f35678a8195a750b34096b1256e436f0cebc1883b5ff0888c47348443e69546a5a87f9e1eb1167
@@ -7181,13 +7118,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"is-subset@npm:^0.1.1":
-  version: 0.1.1
-  resolution: "is-subset@npm:0.1.1"
-  checksum: 97b8d7852af165269b7495095691a6ce6cf20bdfa1f846f97b4560ee190069686107af4e277fbd93aa0845c4d5db704391460ff6e9014aeb73264ba87893df44
-  languageName: node
-  linkType: hard
-
 "is-symbol@npm:^1.0.2, is-symbol@npm:^1.0.3":
   version: 1.0.4
   resolution: "is-symbol@npm:1.0.4"
@@ -7413,7 +7343,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-cli@npm:25.1.0 - 29, jest-cli@npm:^29.5.0":
+"jest-cli@npm:^29.5.0":
   version: 29.5.0
   resolution: "jest-cli@npm:29.5.0"
   dependencies:
@@ -7582,13 +7512,12 @@ __metadata:
     "@types/temp": ^0.9.1
     "@unflakable/jest-plugin": "workspace:^"
     "@unflakable/js-api": "workspace:^"
-    cross-env: ^7.0.3
-    deep-equal: ^2.0.5
-    fetch-mock-jest: ^1.5.1
+    escape-string-regexp: ^4.0.0
     jest: 25.1.0 - 29
-    jest-cli: 25.1.0 - 29
     jest-environment-node: 25.1.0 - 29
+    mockttp: ^3.7.5
     temp: ^0.9.4
+    unflakable-test-common: "workspace:^"
   languageName: unknown
   linkType: soft
 
@@ -8141,13 +8070,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash.isequal@npm:^4.5.0":
-  version: 4.5.0
-  resolution: "lodash.isequal@npm:4.5.0"
-  checksum: da27515dc5230eb1140ba65ff8de3613649620e8656b19a6270afe4866b7bd461d9ba2ac8a48dcc57f7adac4ee80e1de9f965d89d4d81a0ad52bb3eec2609644
-  languageName: node
-  linkType: hard
-
 "lodash.memoize@npm:4.x":
   version: 4.1.2
   resolution: "lodash.memoize@npm:4.1.2"
@@ -8166,13 +8088,6 @@ __metadata:
   version: 4.1.1
   resolution: "lodash.once@npm:4.1.1"
   checksum: d768fa9f9b4e1dc6453be99b753906f58990e0c45e7b2ca5a3b40a33111e5d17f6edf2f768786e2716af90a8e78f8f91431ab8435f761fef00f9b0c256f6d245
-  languageName: node
-  linkType: hard
-
-"lodash.sortby@npm:^4.7.0":
-  version: 4.7.0
-  resolution: "lodash.sortby@npm:4.7.0"
-  checksum: db170c9396d29d11fe9a9f25668c4993e0c1331bcb941ddbd48fb76f492e732add7f2a47cfdf8e9d740fa59ac41bbfaf931d268bc72aab3ab49e9f89354d718c
   languageName: node
   linkType: hard
 
@@ -9187,13 +9102,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"path-to-regexp@npm:^2.2.1":
-  version: 2.4.0
-  resolution: "path-to-regexp@npm:2.4.0"
-  checksum: 581175bf2968e51452f2b8c71f10e75c995693668b4ecf7d0b48962fbe0c56830661ca5dd5fd6d8e2f0cc9a045ce07e89af504ab133e1d21887c2712df85b1f4
-  languageName: node
-  linkType: hard
-
 "path-type@npm:^4.0.0":
   version: 4.0.0
   resolution: "path-type@npm:4.0.0"
@@ -9415,13 +9323,6 @@ __metadata:
   dependencies:
     side-channel: ^1.0.4
   checksum: 31e4fedd759d01eae52dde6692abab175f9af3e639993c5caaa513a2a3607b34d8058d3ae52ceeccf37c3025f22ed5e90e9ddd6c2537e19c0562ddd10dc5b1eb
-  languageName: node
-  linkType: hard
-
-"querystring@npm:^0.2.0":
-  version: 0.2.1
-  resolution: "querystring@npm:0.2.1"
-  checksum: 7b83b45d641e75fd39cd6625ddfd44e7618e741c61e95281b57bbae8fde0afcc12cf851924559e5cc1ef9baa3b1e06e22b164ea1397d65dd94b801f678d9c8ce
   languageName: node
   linkType: hard
 
@@ -10665,15 +10566,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tr46@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "tr46@npm:1.0.1"
-  dependencies:
-    punycode: ^2.1.0
-  checksum: 96d4ed46bc161db75dbf9247a236ea0bfcaf5758baae6749e92afab0bc5a09cb59af21788ede7e55080f2bf02dce3e4a8f2a484cc45164e29f4b5e68f7cbcc1a
-  languageName: node
-  linkType: hard
-
 "tr46@npm:~0.0.3":
   version: 0.0.3
   resolution: "tr46@npm:0.0.3"
@@ -10928,6 +10820,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"unflakable-test-common@workspace:^, unflakable-test-common@workspace:packages/test-common":
+  version: 0.0.0-use.local
+  resolution: "unflakable-test-common@workspace:packages/test-common"
+  dependencies:
+    "@rollup/plugin-commonjs": ^24.1.0
+    "@rollup/plugin-node-resolve": ^15.0.2
+    "@rollup/plugin-typescript": ^11.1.1
+    "@types/jest": 25.1.0 - 29
+    "@unflakable/plugins-common": "workspace:^"
+    cosmiconfig: ^7.0.1
+    debug: ^4.3.3
+    deep-equal: ^2.0.5
+    expect: 25.1.0 - 29
+    mockttp: ^3.7.5
+    rimraf: ^5.0.1
+    rollup: ^3.21.1
+    rollup-plugin-dts: ^5.3.0
+    simple-git: ^3.16.0
+    tree-kill: ^1.2.2
+    typescript: ^4.9.5
+  languageName: unknown
+  linkType: soft
+
 "unicode-canonical-property-names-ecmascript@npm:^2.0.0":
   version: 2.0.0
   resolution: "unicode-canonical-property-names-ecmascript@npm:2.0.0"
@@ -11132,13 +11047,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webidl-conversions@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "webidl-conversions@npm:4.0.2"
-  checksum: c93d8dfe908a0140a4ae9c0ebc87a33805b416a33ee638a605b551523eec94a9632165e54632f6d57a39c5f948c4bab10e0e066525e9a4b87a79f0d04fbca374
-  languageName: node
-  linkType: hard
-
 "webpack-sources@npm:^3.2.3":
   version: 3.2.3
   resolution: "webpack-sources@npm:3.2.3"
@@ -11190,17 +11098,6 @@ __metadata:
     tr46: ~0.0.3
     webidl-conversions: ^3.0.0
   checksum: b8daed4ad3356cc4899048a15b2c143a9aed0dfae1f611ebd55073310c7b910f522ad75d727346ad64203d7e6c79ef25eafd465f4d12775ca44b90fa82ed9e2c
-  languageName: node
-  linkType: hard
-
-"whatwg-url@npm:^6.5.0":
-  version: 6.5.0
-  resolution: "whatwg-url@npm:6.5.0"
-  dependencies:
-    lodash.sortby: ^4.7.0
-    tr46: ^1.0.1
-    webidl-conversions: ^4.0.2
-  checksum: a10bd5e29f4382cd19789c2a7bbce25416e606b6fefc241c7fe34a2449de5bc5709c165bd13634eda433942d917ca7386a52841780b82dc37afa8141c31a8ebd
   languageName: node
   linkType: hard
 

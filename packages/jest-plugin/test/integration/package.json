@@ -5,16 +5,15 @@
     "@types/temp": "^0.9.1",
     "@unflakable/jest-plugin": "workspace:^",
     "@unflakable/js-api": "workspace:^",
-    "cross-env": "^7.0.3",
-    "deep-equal": "^2.0.5",
-    "fetch-mock-jest": "^1.5.1",
+    "escape-string-regexp": "^4.0.0",
     "jest": "25.1.0 - 29",
-    "jest-cli": "25.1.0 - 29",
     "jest-environment-node": "25.1.0 - 29",
-    "temp": "^0.9.4"
+    "mockttp": "^3.7.5",
+    "temp": "^0.9.4",
+    "unflakable-test-common": "workspace:^"
   },
   "scripts": {
-    "test": "cross-env NODE_OPTIONS=\"--require ./src/force-color.js\" jest --useStderr --verbose",
+    "test": "jest --useStderr --verbose",
     "typecheck": "tsc --build"
   }
 }

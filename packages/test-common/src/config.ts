@@ -1,9 +1,13 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
 import _debug from "debug";
-import { UnflakableConfig, setCosmiconfig } from "@unflakable/plugins-common";
-import type { cosmiconfig, Options } from "cosmiconfig";
-import { expect } from "expect";
+import {
+  UnflakableConfig,
+  setCosmiconfig,
+  setCosmiconfigSync,
+} from "@unflakable/plugins-common";
+import type { cosmiconfig, cosmiconfigSync, Options } from "cosmiconfig";
+import { default as expect } from "expect";
 
 const debug = _debug("unflakable:integration-common:config");
 
@@ -53,6 +57,32 @@ export const registerCosmiconfigMock = (): void => {
         ): ReturnType<ReturnType<typeof cosmiconfig>["search"]> => {
           expect(searchFrom).toBe(params.searchFrom);
           return Promise.resolve(params.searchResult);
+        },
+      };
+    }
+  );
+
+  setCosmiconfigSync(
+    (
+      moduleName: string,
+      options?: Options
+    ): ReturnType<typeof cosmiconfigSync> => {
+      expect(moduleName).toBe("unflakable");
+      expect(options?.searchPlaces).toContain("package.json");
+      expect(options?.searchPlaces).toContain("unflakable.json");
+      expect(options?.searchPlaces).toContain("unflakable.js");
+      expect(options?.searchPlaces).toContain("unflakable.yaml");
+      expect(options?.searchPlaces).toContain("unflakable.yml");
+      return {
+        clearCaches: throwUnimplemented,
+        clearLoadCache: throwUnimplemented,
+        clearSearchCache: throwUnimplemented,
+        load: throwUnimplemented,
+        search: (
+          searchFrom?: string
+        ): ReturnType<ReturnType<typeof cosmiconfigSync>["search"]> => {
+          expect(searchFrom).toBe(params.searchFrom);
+          return params.searchResult;
         },
       };
     }

@@ -4,48 +4,60 @@ import {
   defaultExpectedResults,
   integrationTest,
   integrationTestSuite,
-} from "./common";
+} from "./test-wrappers";
 
-integrationTestSuite(() => {
-  it("set test suite ID via environment", () =>
-    integrationTest({
-      params: {
-        envVars: {
-          UNFLAKABLE_SUITE_ID: "MOCK_SUITE_ID_ENV",
+integrationTestSuite((mockBackend) => {
+  it("set test suite ID via environment", (done) =>
+    integrationTest(
+      {
+        params: {
+          envVars: {
+            UNFLAKABLE_SUITE_ID: "MOCK_SUITE_ID_ENV",
+          },
+          expectedSuiteId: "MOCK_SUITE_ID_ENV",
         },
-        expectedSuiteId: "MOCK_SUITE_ID_ENV",
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("set test suite ID via config", () =>
-    integrationTest({
-      params: {
-        config: {
-          testSuiteId: "MOCK_SUITE_ID_CONFIG",
+  it("set test suite ID via config", (done) =>
+    integrationTest(
+      {
+        params: {
+          config: {
+            testSuiteId: "MOCK_SUITE_ID_CONFIG",
+          },
+          envVars: {
+            UNFLAKABLE_SUITE_ID: undefined,
+          },
+          expectedSuiteId: "MOCK_SUITE_ID_CONFIG",
         },
-        envVars: {
-          UNFLAKABLE_SUITE_ID: undefined,
-        },
-        expectedSuiteId: "MOCK_SUITE_ID_CONFIG",
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("set test suite ID via environment (override config)", () =>
-    integrationTest({
-      params: {
-        config: {
-          testSuiteId: "MOCK_SUITE_ID_CONFIG",
+  it("set test suite ID via environment (override config)", (done) =>
+    integrationTest(
+      {
+        params: {
+          config: {
+            testSuiteId: "MOCK_SUITE_ID_CONFIG",
+          },
+          envVars: {
+            UNFLAKABLE_SUITE_ID: "MOCK_SUITE_ID_ENV",
+          },
+          expectedSuiteId: "MOCK_SUITE_ID_ENV",
         },
-        envVars: {
-          UNFLAKABLE_SUITE_ID: "MOCK_SUITE_ID_ENV",
-        },
-        expectedSuiteId: "MOCK_SUITE_ID_ENV",
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 });

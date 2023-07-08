@@ -30,9 +30,10 @@ export const getTestSuiteManifest = ({
   })
     .catch((e: Error) => {
       log(
-        chalk.red(
-          `ERROR: Failed to get Unflakable manifest: ${e.toString()}\n`
-        ) + chalk.yellow.bold("Test failures will NOT be quarantined.\n")
+        chalk.red(`ERROR: Failed to get Unflakable manifest: ${e.toString()}`) +
+          "\n" +
+          chalk.yellow.bold("Test failures will NOT be quarantined.") +
+          "\n"
       );
       return undefined;
     })

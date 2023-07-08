@@ -1,7 +1,6 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
-// Script loaded by Node.JS via --require that mocks cosmiconfig within the cypress-unflakable bin
-// script for testing.
+// Script loaded by Node.JS via --require that mocks cosmiconfig for testing.
 
 import { registerCosmiconfigMock } from "./config";
 

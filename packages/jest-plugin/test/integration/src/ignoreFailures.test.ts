@@ -4,17 +4,21 @@ import {
   defaultExpectedResults,
   integrationTest,
   integrationTestSuite,
-} from "./common";
+} from "./test-wrappers";
 
-integrationTestSuite(() => {
-  it("set quarantineMode to ignore_failures explicitly", () =>
-    integrationTest({
-      params: {
-        config: {
-          quarantineMode: "ignore_failures",
+integrationTestSuite((mockBackend) => {
+  it("set quarantineMode to ignore_failures explicitly", (done) =>
+    integrationTest(
+      {
+        params: {
+          config: {
+            quarantineMode: "ignore_failures",
+          },
         },
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 });

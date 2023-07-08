@@ -4,44 +4,56 @@ import {
   defaultExpectedResults,
   integrationTest,
   integrationTestSuite,
-} from "./common";
+} from "./test-wrappers";
 
-integrationTestSuite(() => {
-  it("disable upload via config", () =>
-    integrationTest({
-      params: {
-        config: {
-          uploadResults: false,
+integrationTestSuite((mockBackend) => {
+  it("disable upload via config", (done) =>
+    integrationTest(
+      {
+        params: {
+          config: {
+            uploadResults: false,
+          },
+          expectResultsToBeUploaded: false,
         },
-        expectResultsToBeUploaded: false,
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("disable upload via environment", () =>
-    integrationTest({
-      params: {
-        envVars: {
-          UNFLAKABLE_UPLOAD_RESULTS: "false",
+  it("disable upload via environment", (done) =>
+    integrationTest(
+      {
+        params: {
+          envVars: {
+            UNFLAKABLE_UPLOAD_RESULTS: "false",
+          },
+          expectResultsToBeUploaded: false,
         },
-        expectResultsToBeUploaded: false,
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("enable upload via environment (override config)", () =>
-    integrationTest({
-      params: {
-        config: {
-          uploadResults: false,
+  it("enable upload via environment (override config)", (done) =>
+    integrationTest(
+      {
+        params: {
+          config: {
+            uploadResults: false,
+          },
+          envVars: {
+            UNFLAKABLE_UPLOAD_RESULTS: "true",
+          },
         },
-        envVars: {
-          UNFLAKABLE_UPLOAD_RESULTS: "true",
-        },
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 });

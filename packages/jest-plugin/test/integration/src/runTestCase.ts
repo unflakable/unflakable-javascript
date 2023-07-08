@@ -2,34 +2,36 @@
 
 import * as temp from "temp";
 import {
-  FetchMockSandbox,
-  MockCall,
-  MockRequest,
-  MockResponse,
-  MockMatcher,
-} from "fetch-mock";
-import { run } from "jest-cli";
-import escapeStringRegexp from "escape-string-regexp";
-import {
-  CreateTestSuiteRunFromUploadRequest,
   CreateTestSuiteRunInlineRequest,
   TEST_NAME_ENTRY_MAX_LENGTH,
-  TestAttemptResult,
   TestRunAttemptRecord,
   TestRunRecord,
   TestSuiteManifest,
-  TestSuiteRunPendingSummary,
 } from "@unflakable/js-api";
-import { simpleGit, SimpleGit } from "simple-git";
-import type { Response as GitResponse, TaskOptions } from "simple-git";
-import deepEqual from "deep-equal";
-import * as cosmiconfig from "cosmiconfig";
-import { CosmiconfigResult } from "cosmiconfig/dist/types";
 import { gunzipSync } from "zlib";
 import { UnflakableConfig } from "@unflakable/plugins-common";
-import _debug from "debug";
+import { verifyOutput } from "./verify-output";
+import {
+  CONFIG_MOCK_ENV_VAR,
+  CosmiconfigMockParams,
+} from "unflakable-test-common/dist/config";
+import path from "path";
+import { promisify } from "util";
+import { execFile } from "child_process";
+import {
+  MockBackend,
+  UnmatchedEndpoints,
+} from "unflakable-test-common/dist/mock-backend";
+import { CompletedRequest } from "mockttp";
+import { GIT_MOCK_ENV_VAR } from "unflakable-test-common/dist/git";
+import {
+  AsyncTestError,
+  spawnTestWithTimeout,
+} from "unflakable-test-common/dist/spawn";
 
-const debug = _debug("unflakable:integration:run-test-case");
+// Jest times out after 40 seconds, so we bail early here to allow time to print the
+// captured output before Jest kills the test.
+const TEST_TIMEOUT_MS = 30000;
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-jest-plugin/(?:[-0-9.]|alpha|beta)+ \\(Jest [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
@@ -81,100 +83,12 @@ export type TestCaseParams = {
   testNamePattern: string | undefined;
 };
 
-const originalStderrWrite = process.stderr.write.bind(process.stderr);
-
-const mockSimpleGit = (params: SimpleGitMockParams): void => {
-  debug("Mocking simple-git with params %o", params);
-  const mockSimpleGitImpl = {
-    checkIsRepo: jest.fn(
-      () => Promise.resolve(params.isRepo) as GitResponse<boolean>
-    ),
-    revparse: jest.fn((options: string | TaskOptions) => {
-      if (!params.isRepo) {
-        throw new Error("not a git repository");
-      } else if (
-        Array.isArray(options) &&
-        options.length === 2 &&
-        options[0] === "--abbrev-ref"
-      ) {
-        return Promise.resolve(
-          params.abbreviatedRefs[options[1]] ?? "HEAD"
-        ) as GitResponse<string>;
-      } else if (
-        Array.isArray(options) &&
-        options.length === 1 &&
-        options[0] === "--show-toplevel"
-      ) {
-        // Treat the current working directory as the repo root.
-        debug(`Returning mock git repo root ${params.repoRoot}`);
-        return Promise.resolve(params.repoRoot);
-      } else if (options === "HEAD") {
-        return Promise.resolve(params.commit) as GitResponse<string>;
-      } else {
-        throw new Error(`unexpected options ${options.toString()}`);
-      }
-    }),
-    raw: jest.fn((options: string | TaskOptions) => {
-      if (!params.isRepo) {
-        throw new Error("not a git repository");
-      } else if (deepEqual(options, ["show-ref"])) {
-        return Promise.resolve(
-          (params.refs ?? [])
-            .map((mockRef) => `${mockRef.sha} ${mockRef.refName}`)
-            .join("\n") + "\n"
-        ) as GitResponse<string>;
-      } else {
-        throw new Error(`unexpected options ${options.toString()}`);
-      }
-    }),
-  } as unknown as SimpleGit;
-
-  (simpleGit as jest.Mock).mockImplementation(() => mockSimpleGitImpl);
-};
-
-// These are the chalk-formatted strings that include console color codes.
-const FAIL =
-  "\u001b[0m\u001b[7m\u001b[1m\u001b[31m FAIL \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
-const PASS =
-  "\u001b[0m\u001b[7m\u001b[1m\u001b[32m PASS \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
-const QUARANTINED =
-  "\u001b[0m\u001b[7m\u001b[1m\u001b[33m QUARANTINED \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
-const formatTestFilename = (path: string, filename: string): string =>
-  `\u001b[2m${path}\u001b[22m\u001b[1m${filename}\u001b[22m`;
-
-const testResultRegexMatch = (
-  result: TestAttemptResult | "skipped",
-  testName: string,
-  indent?: number
-): RegExp =>
-  new RegExp(
-    `^${" ".repeat(indent ?? 4)}${escapeStringRegexp(
-      result === "pass"
-        ? // Green
-          "\u001b[32m✓\u001b[39m"
-        : result === "fail"
-        ? // Red
-          "\u001b[31m✕\u001b[39m"
-        : result === "quarantined"
-        ? // Yellow
-          "\u001b[33m✕\u001b[39m"
-        : result === "skipped"
-        ? // Yellow
-          "\u001b[33m○\u001b[39m"
-        : ""
-    )} \u001b\\[2m${result === "skipped" ? "skipped " : ""}${escapeStringRegexp(
-      testName
-    )}${
-      result === "quarantined"
-        ? escapeStringRegexp("\u001b[33m [quarantined]\u001b[39m")
-        : ""
-      // Test duration is only included if the test takes at least 1ms.
-    }( \\([0-9]+ ms\\))?\u001b\\[22m$`,
-    ""
-  );
-
 const specRepoPath = (params: TestCaseParams, specNameStub: string): string =>
   `${params.expectedRepoRelativePathPrefix}src/${specNameStub}.test.ts`;
+
+export const MOCK_RUN_ID = "MOCK_RUN_ID";
+const TIMESTAMP_REGEX =
+  /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 
 export type ResultCounts = {
   passedSuites: number;
@@ -191,304 +105,11 @@ export type ResultCounts = {
   totalSnapshots: number;
 };
 
-const countResults = ({
-  expectPluginToBeEnabled,
-  expectQuarantinedTestsToBeQuarantined,
-  expectQuarantinedTestsToBeSkipped,
-  expectedFailureRetries,
-  expectedFlakeTestNameSuffix,
-  expectSnapshots,
-  failToFetchManifest,
-  quarantineFlake,
-  skipFailures,
-  skipFlake,
-  skipQuarantined,
-  testNamePattern,
-}: TestCaseParams): ResultCounts => {
-  const flakyTest1ShouldRun =
-    !skipFlake &&
-    (!expectPluginToBeEnabled ||
-      !quarantineFlake ||
-      !expectQuarantinedTestsToBeSkipped ||
-      failToFetchManifest) &&
-    (testNamePattern === undefined ||
-      `should be flaky 1${expectedFlakeTestNameSuffix}`.match(
-        testNamePattern
-      ) !== null);
-  const flakyTest2ShouldRun =
-    !skipFlake &&
-    (!expectPluginToBeEnabled ||
-      !quarantineFlake ||
-      !expectQuarantinedTestsToBeSkipped ||
-      failToFetchManifest) &&
-    (testNamePattern === undefined ||
-      `should be flaky 2${expectedFlakeTestNameSuffix}`.match(
-        testNamePattern
-      ) !== null);
-
-  const mixedFailTestShouldRun =
-    !skipFailures &&
-    (testNamePattern === undefined ||
-      "mixed mixed: should fail".match(testNamePattern) !== null);
-  const mixedQuarantinedTestShouldRun =
-    !expectQuarantinedTestsToBeSkipped &&
-    !skipQuarantined &&
-    (testNamePattern === undefined ||
-      "mixed mixed: should be quarantined".match(testNamePattern) !== null);
-  const mixedPassTestShouldRun =
-    testNamePattern === undefined ||
-    "mixed mixed: should pass".match(testNamePattern) !== null;
-
-  const quarantinedTestShouldRun =
-    !expectQuarantinedTestsToBeSkipped &&
-    !skipQuarantined &&
-    (testNamePattern === undefined ||
-      "describe block should be quarantined".match(testNamePattern) !== null);
-
-  return [
-    // fail.test.ts
-    {
-      failedSuites:
-        (testNamePattern === undefined ||
-          "describe block should ([escape regex]?.*$ fail".match(
-            testNamePattern
-          ) !== null) &&
-        !skipFailures
-          ? 1
-          : 0,
-      failedTests:
-        (testNamePattern === undefined ||
-          "describe block should ([escape regex]?.*$ fail".match(
-            testNamePattern
-          ) !== null) &&
-        !skipFailures
-          ? 1
-          : 0,
-      flakyTests: 0,
-      passedSuites: 0,
-      passedTests: 0,
-      quarantinedSuites: 0,
-      quarantinedTests: 0,
-      skippedSuites:
-        (testNamePattern !== undefined &&
-          "describe block should ([escape regex]?.*$ fail".match(
-            testNamePattern
-          ) === null) ||
-        skipFailures
-          ? 1
-          : 0,
-      skippedTests:
-        (testNamePattern !== undefined &&
-          "describe block should ([escape regex]?.*$ fail".match(
-            testNamePattern
-          ) === null) ||
-        skipFailures
-          ? 1
-          : 0,
-      passedSnapshots: 0,
-      failedSnapshots: expectSnapshots ? 1 : 0,
-      totalSnapshots: expectSnapshots ? 1 : 0,
-    },
-    // flake.test.ts
-    {
-      failedSuites:
-        (!expectPluginToBeEnabled || !quarantineFlake) &&
-        (flakyTest1ShouldRun || flakyTest2ShouldRun)
-          ? 1
-          : 0,
-      failedTests:
-        !expectPluginToBeEnabled || expectedFailureRetries === 0
-          ? (flakyTest1ShouldRun ? 1 : 0) + (flakyTest2ShouldRun ? 1 : 0)
-          : 0,
-      flakyTests:
-        expectPluginToBeEnabled &&
-        expectedFailureRetries > 0 &&
-        !quarantineFlake
-          ? (flakyTest1ShouldRun ? 1 : 0) + (flakyTest2ShouldRun ? 1 : 0)
-          : 0,
-      passedSuites: 0,
-      passedTests: 0,
-      quarantinedSuites:
-        expectPluginToBeEnabled &&
-        quarantineFlake &&
-        expectQuarantinedTestsToBeQuarantined &&
-        (flakyTest1ShouldRun || flakyTest2ShouldRun)
-          ? 1
-          : 0,
-      quarantinedTests:
-        expectPluginToBeEnabled &&
-        quarantineFlake &&
-        expectQuarantinedTestsToBeQuarantined
-          ? (flakyTest1ShouldRun ? 1 : 0) + (flakyTest2ShouldRun ? 1 : 0)
-          : 0,
-      skippedSuites: !flakyTest1ShouldRun && !flakyTest2ShouldRun ? 1 : 0,
-      skippedTests:
-        (!flakyTest1ShouldRun ? 1 : 0) + (!flakyTest2ShouldRun ? 1 : 0),
-      passedSnapshots: 0,
-      failedSnapshots: expectSnapshots ? 2 : 0,
-      totalSnapshots: expectSnapshots ? 2 : 0,
-    },
-    // invalid.test.ts
-    {
-      // If skipFailures is enabled, then we exclude the whole file using a path regex.
-      failedSuites: skipFailures ? 0 : 1,
-      failedTests: 0,
-      flakyTests: 0,
-      passedSuites: 0,
-      passedTests: 0,
-      quarantinedSuites: 0,
-      quarantinedTests: 0,
-      skippedSuites: 0,
-      skippedTests: 0,
-      passedSnapshots: 0,
-      failedSnapshots: 0,
-      totalSnapshots: 0,
-    },
-    // mixed.test.ts
-    {
-      failedSuites:
-        ((!expectPluginToBeEnabled ||
-          !expectQuarantinedTestsToBeQuarantined ||
-          failToFetchManifest) &&
-          mixedQuarantinedTestShouldRun) ||
-        mixedFailTestShouldRun
-          ? 1
-          : 0,
-      failedTests:
-        ((!expectPluginToBeEnabled ||
-          !expectQuarantinedTestsToBeQuarantined ||
-          failToFetchManifest) &&
-        mixedQuarantinedTestShouldRun
-          ? 1
-          : 0) + (mixedFailTestShouldRun ? 1 : 0),
-      flakyTests: 0,
-      passedSuites:
-        !mixedFailTestShouldRun &&
-        !mixedQuarantinedTestShouldRun &&
-        mixedPassTestShouldRun
-          ? 1
-          : 0,
-      passedTests: mixedPassTestShouldRun ? 1 : 0,
-      quarantinedSuites:
-        expectPluginToBeEnabled &&
-        expectQuarantinedTestsToBeQuarantined &&
-        !failToFetchManifest &&
-        !mixedFailTestShouldRun &&
-        mixedQuarantinedTestShouldRun
-          ? 1
-          : 0,
-      quarantinedTests:
-        expectPluginToBeEnabled &&
-        expectQuarantinedTestsToBeQuarantined &&
-        !failToFetchManifest &&
-        mixedQuarantinedTestShouldRun
-          ? 1
-          : 0,
-      skippedSuites:
-        !mixedQuarantinedTestShouldRun &&
-        !mixedFailTestShouldRun &&
-        !mixedPassTestShouldRun
-          ? 1
-          : 0,
-      skippedTests:
-        (!mixedQuarantinedTestShouldRun ? 1 : 0) +
-        (!mixedFailTestShouldRun ? 1 : 0) +
-        (!mixedPassTestShouldRun ? 1 : 0),
-      passedSnapshots:
-        !expectSnapshots && mixedQuarantinedTestShouldRun ? 1 : 0,
-      failedSnapshots: expectSnapshots && mixedQuarantinedTestShouldRun ? 1 : 0,
-      totalSnapshots: mixedQuarantinedTestShouldRun ? 1 : 0,
-    },
-    // pass.test.ts
-    {
-      failedSuites: 0,
-      failedTests: 0,
-      flakyTests: 0,
-      passedSuites:
-        testNamePattern === undefined ||
-        "should pass".match(testNamePattern) !== null
-          ? 1
-          : 0,
-      passedTests:
-        testNamePattern === undefined ||
-        "should pass".match(testNamePattern) !== null
-          ? 1
-          : 0,
-      quarantinedSuites: 0,
-      quarantinedTests: 0,
-      skippedSuites:
-        testNamePattern !== undefined &&
-        "should pass".match(testNamePattern) === null
-          ? 1
-          : 0,
-      skippedTests:
-        testNamePattern !== undefined &&
-        "should pass".match(testNamePattern) === null
-          ? 1
-          : 0,
-      passedSnapshots: expectSnapshots ? 1 : 0,
-      failedSnapshots: 0,
-      totalSnapshots: expectSnapshots ? 1 : 0,
-    },
-    // quarantined.test.ts
-    {
-      failedSuites:
-        (!expectPluginToBeEnabled ||
-          !expectQuarantinedTestsToBeQuarantined ||
-          failToFetchManifest) &&
-        quarantinedTestShouldRun
-          ? 1
-          : 0,
-      failedTests:
-        (!expectPluginToBeEnabled ||
-          !expectQuarantinedTestsToBeQuarantined ||
-          failToFetchManifest) &&
-        quarantinedTestShouldRun
-          ? 1
-          : 0,
-      flakyTests: 0,
-      passedSuites: 0,
-      passedTests: 0,
-      quarantinedSuites:
-        expectPluginToBeEnabled &&
-        expectQuarantinedTestsToBeQuarantined &&
-        !failToFetchManifest &&
-        quarantinedTestShouldRun
-          ? 1
-          : 0,
-      quarantinedTests:
-        expectPluginToBeEnabled &&
-        expectQuarantinedTestsToBeQuarantined &&
-        !failToFetchManifest &&
-        quarantinedTestShouldRun
-          ? 1
-          : 0,
-      skippedSuites: !quarantinedTestShouldRun ? 1 : 0,
-      skippedTests: !quarantinedTestShouldRun ? 1 : 0,
-      passedSnapshots: 0,
-      failedSnapshots: 0,
-      totalSnapshots: 0,
-    },
-  ].reduce((a: ResultCounts, b: ResultCounts) => ({
-    failedSuites: a.failedSuites + b.failedSuites,
-    failedTests: a.failedTests + b.failedTests,
-    flakyTests: a.flakyTests + b.flakyTests,
-    passedSuites: a.passedSuites + b.passedSuites,
-    passedTests: a.passedTests + b.passedTests,
-    quarantinedSuites: a.quarantinedSuites + b.quarantinedSuites,
-    quarantinedTests: a.quarantinedTests + b.quarantinedTests,
-    skippedSuites: a.skippedSuites + b.skippedSuites,
-    skippedTests: a.skippedTests + b.skippedTests,
-    passedSnapshots: a.passedSnapshots + b.passedSnapshots,
-    failedSnapshots: a.failedSnapshots + b.failedSnapshots,
-    totalSnapshots: a.totalSnapshots + b.totalSnapshots,
-  }));
-};
-
-const uploadResultsMatcher = (
+const verifyUploadResults = (
   params: TestCaseParams,
-  results: ResultCounts
-): MockMatcher => {
+  expectedResults: ResultCounts,
+  request: CompletedRequest
+): void => {
   const {
     expectedBranch,
     expectedCommit,
@@ -503,773 +124,329 @@ const uploadResultsMatcher = (
     skipQuarantined,
     testNamePattern,
   } = params;
-  return (_url, { body, headers }) => {
-    const parsedBody = JSON.parse(
-      gunzipSync(body as string).toString()
-    ) as CreateTestSuiteRunInlineRequest;
 
-    expect((headers as { [key in string]: string })["User-Agent"]).toMatch(
-      userAgentRegex
-    );
+  const parsedBody = JSON.parse(
+    gunzipSync(request.body.buffer).toString()
+  ) as CreateTestSuiteRunInlineRequest;
 
-    const testNamePatternRegex =
-      testNamePattern !== undefined ? new RegExp(testNamePattern) : undefined;
+  expect(request.headers["user-agent"]).toMatch(userAgentRegex);
 
-    parsedBody.test_runs.sort((a, b) =>
-      a.filename < b.filename
-        ? -1
-        : a.filename > b.filename
-        ? 1
-        : a.name < b.name
-        ? -1
-        : a.name > b.name
-        ? 1
-        : a < b
-        ? -1
-        : a > b
-        ? 1
-        : 0
-    );
+  const testNamePatternRegex =
+    testNamePattern !== undefined ? new RegExp(testNamePattern) : undefined;
 
-    expect(parsedBody).toEqual({
-      ...(expectedBranch !== undefined
-        ? {
-            branch: expectedBranch,
-          }
-        : {}),
-      ...(expectedCommit !== undefined
-        ? {
-            commit: expectedCommit,
-          }
-        : {}),
-      start_time: "2022-01-23T04:05:06.789Z",
-      end_time: expect.stringMatching(/2022-01-23T04:05:..\..89Z/) as string,
-      test_runs: expect.arrayContaining<TestRunRecord>(
-        [
-          ...(skipFailures
-            ? ([] as TestRunRecord[])
-            : ([
-                {
-                  filename: specRepoPath(params, "fail"),
-                  name: ["describe block", "should ([escape regex]?.*$ fail"],
-                  attempts: Array<TestRunAttemptRecord>(
-                    expectedFailureRetries + 1
-                  ).fill({
-                    duration_ms: expect.any(Number) as number,
-                    result: "fail",
-                  }),
-                },
-              ] as TestRunRecord[])),
-          ...(skipFlake ||
-          (expectQuarantinedTestsToBeSkipped &&
-            quarantineFlake &&
-            !failToFetchManifest) ||
-          (testNamePattern !== undefined &&
-            `should be flaky 1${expectedFlakeTestNameSuffix}`.match(
-              testNamePattern
-            ) === null)
-            ? []
-            : [
-                {
-                  filename: specRepoPath(params, "flake"),
-                  name: [
-                    `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
-                      0,
-                      TEST_NAME_ENTRY_MAX_LENGTH
-                    ),
-                  ],
-                  attempts: [
-                    {
-                      duration_ms: expect.any(Number) as number,
-                      result:
-                        quarantineFlake &&
-                        !failToFetchManifest &&
-                        expectQuarantinedTestsToBeQuarantined
-                          ? "quarantined"
-                          : "fail",
-                    },
-                    ...(expectedFailureRetries > 0
-                      ? [
-                          {
-                            duration_ms: expect.any(Number) as number,
-                            result: "pass",
-                          },
-                        ]
-                      : []),
-                  ],
-                } as TestRunRecord,
-              ]),
-          ...(skipFlake ||
-          (expectQuarantinedTestsToBeSkipped &&
-            quarantineFlake &&
-            !failToFetchManifest) ||
-          (testNamePattern !== undefined &&
-            `should be flaky 2${expectedFlakeTestNameSuffix}`.match(
-              testNamePattern
-            ) === null)
-            ? []
-            : [
-                {
-                  filename: specRepoPath(params, "flake"),
-                  name: [
-                    `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
-                      0,
-                      TEST_NAME_ENTRY_MAX_LENGTH
-                    ),
-                  ],
-                  attempts: [
-                    {
-                      duration_ms: expect.any(Number) as number,
-                      result:
-                        quarantineFlake &&
-                        !failToFetchManifest &&
-                        expectQuarantinedTestsToBeQuarantined
-                          ? "quarantined"
-                          : "fail",
-                    },
-                    ...(expectedFailureRetries > 0
-                      ? [
-                          {
-                            duration_ms: expect.any(Number) as number,
-                            result: "pass",
-                          },
-                        ]
-                      : []),
-                  ],
-                } as TestRunRecord,
-              ]),
-          ...(skipQuarantined ||
-          (expectQuarantinedTestsToBeSkipped && !failToFetchManifest) ||
-          (testNamePattern !== undefined &&
-            "mixed mixed: should be quarantined".match(testNamePattern) !==
-              null)
-            ? []
-            : ([
-                {
-                  filename: specRepoPath(params, "mixed"),
-                  name: ["mixed", "mixed: should be quarantined"],
-                  attempts: Array<TestRunAttemptRecord>(
-                    expectedFailureRetries + 1
-                  ).fill({
+  parsedBody.test_runs.sort((a, b) =>
+    a.filename < b.filename
+      ? -1
+      : a.filename > b.filename
+      ? 1
+      : a.name < b.name
+      ? -1
+      : a.name > b.name
+      ? 1
+      : a < b
+      ? -1
+      : a > b
+      ? 1
+      : 0
+  );
+
+  expect(parsedBody).toEqual({
+    ...(expectedBranch !== undefined
+      ? {
+          branch: expectedBranch,
+        }
+      : {}),
+    ...(expectedCommit !== undefined
+      ? {
+          commit: expectedCommit,
+        }
+      : {}),
+    start_time: expect.stringMatching(TIMESTAMP_REGEX) as string,
+    end_time: expect.stringMatching(TIMESTAMP_REGEX) as string,
+    test_runs: expect.arrayContaining<TestRunRecord>(
+      [
+        ...(skipFailures
+          ? ([] as TestRunRecord[])
+          : ([
+              {
+                filename: specRepoPath(params, "fail"),
+                name: ["describe block", "should ([escape regex]?.*$ fail"],
+                attempts: Array<TestRunAttemptRecord>(
+                  expectedFailureRetries + 1
+                ).fill({
+                  duration_ms: expect.any(Number) as number,
+                  result: "fail",
+                }),
+              },
+            ] as TestRunRecord[])),
+        ...(skipFlake ||
+        (expectQuarantinedTestsToBeSkipped &&
+          quarantineFlake &&
+          !failToFetchManifest) ||
+        (testNamePattern !== undefined &&
+          `should be flaky 1${expectedFlakeTestNameSuffix}`.match(
+            testNamePattern
+          ) === null)
+          ? []
+          : [
+              {
+                filename: specRepoPath(params, "flake"),
+                name: [
+                  `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
+                    0,
+                    TEST_NAME_ENTRY_MAX_LENGTH
+                  ),
+                ],
+                attempts: [
+                  {
                     duration_ms: expect.any(Number) as number,
                     result:
-                      failToFetchManifest ||
-                      !expectQuarantinedTestsToBeQuarantined
-                        ? "fail"
-                        : "quarantined",
-                  }),
-                },
-              ] as TestRunRecord[])),
-          ...(skipFailures ||
-          (testNamePattern !== undefined &&
-            "mixed mixed: should fail".match(testNamePattern) !== null)
-            ? []
-            : ([
-                {
-                  filename: specRepoPath(params, "mixed"),
-                  name: ["mixed", "mixed: should fail"],
-                  attempts: Array<TestRunAttemptRecord>(
-                    expectedFailureRetries + 1
-                  ).fill({
-                    duration_ms: expect.any(Number) as number,
-                    result: "fail",
-                  }),
-                },
-              ] as TestRunRecord[])),
-          ...(testNamePattern === undefined ||
-          "mixed mixed: should pass".match(testNamePattern) === null
-            ? [
-                {
-                  filename: specRepoPath(params, "mixed"),
-                  name: ["mixed", "mixed: should pass"],
-                  attempts: [
-                    {
-                      duration_ms: expect.any(Number) as number,
-                      result: "pass",
-                    },
-                  ],
-                } as TestRunRecord,
-              ]
-            : []),
-          ...(testNamePattern === undefined ||
-          "should pass".match(testNamePattern) !== null
-            ? [
-                {
-                  filename: specRepoPath(params, "pass"),
-                  name: ["should pass"],
-                  attempts: [
-                    {
-                      duration_ms: expect.any(Number) as number,
-                      result: "pass",
-                    },
-                  ],
-                } as TestRunRecord,
-              ]
-            : []),
-          ...(skipQuarantined ||
-          (expectQuarantinedTestsToBeSkipped && !failToFetchManifest) ||
-          (testNamePattern !== undefined &&
-            "describe block should be quarantined".match(testNamePattern) ===
-              null)
-            ? []
-            : ([
-                {
-                  filename: specRepoPath(params, "quarantined"),
-                  name: ["describe block", "should be quarantined"],
-                  attempts: Array<TestRunAttemptRecord>(
-                    expectedFailureRetries + 1
-                  ).fill({
+                      quarantineFlake &&
+                      !failToFetchManifest &&
+                      expectQuarantinedTestsToBeQuarantined
+                        ? "quarantined"
+                        : "fail",
+                  },
+                  ...(expectedFailureRetries > 0
+                    ? [
+                        {
+                          duration_ms: expect.any(Number) as number,
+                          result: "pass",
+                        },
+                      ]
+                    : []),
+                ],
+              } as TestRunRecord,
+            ]),
+        ...(skipFlake ||
+        (expectQuarantinedTestsToBeSkipped &&
+          quarantineFlake &&
+          !failToFetchManifest) ||
+        (testNamePattern !== undefined &&
+          `should be flaky 2${expectedFlakeTestNameSuffix}`.match(
+            testNamePattern
+          ) === null)
+          ? []
+          : [
+              {
+                filename: specRepoPath(params, "flake"),
+                name: [
+                  `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
+                    0,
+                    TEST_NAME_ENTRY_MAX_LENGTH
+                  ),
+                ],
+                attempts: [
+                  {
                     duration_ms: expect.any(Number) as number,
                     result:
-                      failToFetchManifest ||
-                      !expectQuarantinedTestsToBeQuarantined
-                        ? "fail"
-                        : "quarantined",
-                  }),
-                },
-              ] as TestRunRecord[])),
-        ].filter(
-          (runRecord) =>
-            testNamePatternRegex === undefined ||
-            testNamePatternRegex.test(runRecord.name.join(" "))
-        )
-      ) as TestRunRecord[],
-    });
-    // Make sure there aren't any extra tests reported.
-    expect(parsedBody.test_runs).toHaveLength(
-      results.failedTests +
-        results.flakyTests +
-        results.quarantinedTests +
-        results.passedTests
-    );
-    return true;
-  };
+                      quarantineFlake &&
+                      !failToFetchManifest &&
+                      expectQuarantinedTestsToBeQuarantined
+                        ? "quarantined"
+                        : "fail",
+                  },
+                  ...(expectedFailureRetries > 0
+                    ? [
+                        {
+                          duration_ms: expect.any(Number) as number,
+                          result: "pass",
+                        },
+                      ]
+                    : []),
+                ],
+              } as TestRunRecord,
+            ]),
+        ...(skipQuarantined ||
+        (expectQuarantinedTestsToBeSkipped && !failToFetchManifest) ||
+        (testNamePattern !== undefined &&
+          "mixed mixed: should be quarantined".match(testNamePattern) !== null)
+          ? []
+          : ([
+              {
+                filename: specRepoPath(params, "mixed"),
+                name: ["mixed", "mixed: should be quarantined"],
+                attempts: Array<TestRunAttemptRecord>(
+                  expectedFailureRetries + 1
+                ).fill({
+                  duration_ms: expect.any(Number) as number,
+                  result:
+                    failToFetchManifest ||
+                    !expectQuarantinedTestsToBeQuarantined
+                      ? "fail"
+                      : "quarantined",
+                }),
+              },
+            ] as TestRunRecord[])),
+        ...(skipFailures ||
+        (testNamePattern !== undefined &&
+          "mixed mixed: should fail".match(testNamePattern) !== null)
+          ? []
+          : ([
+              {
+                filename: specRepoPath(params, "mixed"),
+                name: ["mixed", "mixed: should fail"],
+                attempts: Array<TestRunAttemptRecord>(
+                  expectedFailureRetries + 1
+                ).fill({
+                  duration_ms: expect.any(Number) as number,
+                  result: "fail",
+                }),
+              },
+            ] as TestRunRecord[])),
+        ...(testNamePattern === undefined ||
+        "mixed mixed: should pass".match(testNamePattern) === null
+          ? [
+              {
+                filename: specRepoPath(params, "mixed"),
+                name: ["mixed", "mixed: should pass"],
+                attempts: [
+                  {
+                    duration_ms: expect.any(Number) as number,
+                    result: "pass",
+                  },
+                ],
+              } as TestRunRecord,
+            ]
+          : []),
+        ...(testNamePattern === undefined ||
+        "should pass".match(testNamePattern) !== null
+          ? [
+              {
+                filename: specRepoPath(params, "pass"),
+                name: ["should pass"],
+                attempts: [
+                  {
+                    duration_ms: expect.any(Number) as number,
+                    result: "pass",
+                  },
+                ],
+              } as TestRunRecord,
+            ]
+          : []),
+        ...(skipQuarantined ||
+        (expectQuarantinedTestsToBeSkipped && !failToFetchManifest) ||
+        (testNamePattern !== undefined &&
+          "describe block should be quarantined".match(testNamePattern) ===
+            null)
+          ? []
+          : ([
+              {
+                filename: specRepoPath(params, "quarantined"),
+                name: ["describe block", "should be quarantined"],
+                attempts: Array<TestRunAttemptRecord>(
+                  expectedFailureRetries + 1
+                ).fill({
+                  duration_ms: expect.any(Number) as number,
+                  result:
+                    failToFetchManifest ||
+                    !expectQuarantinedTestsToBeQuarantined
+                      ? "fail"
+                      : "quarantined",
+                }),
+              },
+            ] as TestRunRecord[])),
+      ].filter(
+        (runRecord) =>
+          testNamePatternRegex === undefined ||
+          testNamePatternRegex.test(runRecord.name.join(" "))
+      )
+    ) as TestRunRecord[],
+  });
+  // Make sure there aren't any extra tests reported.
+  expect(parsedBody.test_runs).toHaveLength(
+    expectedResults.failedTests +
+      expectedResults.flakyTests +
+      expectedResults.quarantinedTests +
+      expectedResults.passedTests
+  );
 };
 
-const addFetchMockExpectations = (
+const addBackendExpectations = async (
   params: TestCaseParams,
-  results: ResultCounts,
-  fetchMock: jest.MockInstance<Response, MockCall> & FetchMockSandbox
-): void => {
+  expectedResults: ResultCounts,
+  mockBackend: MockBackend,
+  onError: (e: unknown) => void
+): Promise<UnmatchedEndpoints> => {
   const {
     expectedApiKey,
     expectedBranch,
     expectedCommit,
     expectedFlakeTestNameSuffix,
     expectedSuiteId,
+    expectPluginToBeEnabled,
     expectResultsToBeUploaded,
     failToFetchManifest,
     failToUploadResults,
     quarantineFlake,
   } = params;
-  fetchMock.get(
-    {
-      url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/manifest`,
-      headers: {
-        Authorization: `Bearer ${expectedApiKey}`,
+
+  const manifest: TestSuiteManifest = {
+    quarantined_tests: [
+      {
+        test_id: "TEST_QUARANTINED",
+        filename: specRepoPath(params, "quarantined"),
+        name: ["describe block", "should be quarantined"],
       },
-      matcher: (_url, { headers }) => {
-        expect((headers as { [key in string]: string })["User-Agent"]).toMatch(
-          userAgentRegex
-        );
-        return true;
+      {
+        test_id: "TEST_QUARANTINED2",
+        filename: specRepoPath(params, "mixed"),
+        name: ["mixed", "mixed: should be quarantined"],
       },
-    },
-    failToFetchManifest
-      ? {
-          throws: new Error("mock request failure"),
-        }
+      ...(quarantineFlake
+        ? [
+            {
+              test_id: "TEST_FLAKE",
+              filename: specRepoPath(params, "flake"),
+              name: [
+                `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
+                  0,
+                  TEST_NAME_ENTRY_MAX_LENGTH
+                ),
+              ],
+            },
+            {
+              test_id: "TEST_FLAKE",
+              filename: specRepoPath(params, "flake"),
+              name: [
+                `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
+                  0,
+                  TEST_NAME_ENTRY_MAX_LENGTH
+                ),
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+
+  return mockBackend.addExpectations(
+    onError,
+    failToFetchManifest ? null : manifest,
+    (request) => verifyUploadResults(params, expectedResults, request),
+    failToUploadResults
+      ? null
       : {
-          body: {
-            quarantined_tests: [
-              {
-                test_id: "TEST_QUARANTINED",
-                filename: specRepoPath(params, "quarantined"),
-                name: ["describe block", "should be quarantined"],
-              },
-              {
-                test_id: "TEST_QUARANTINED2",
-                filename: specRepoPath(params, "mixed"),
-                name: ["mixed", "mixed: should be quarantined"],
-              },
-              ...(quarantineFlake
-                ? [
-                    {
-                      test_id: "TEST_FLAKE",
-                      filename: specRepoPath(params, "flake"),
-                      name: [
-                        `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
-                          0,
-                          TEST_NAME_ENTRY_MAX_LENGTH
-                        ),
-                      ],
-                    },
-                    {
-                      test_id: "TEST_FLAKE",
-                      filename: specRepoPath(params, "flake"),
-                      name: [
-                        `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
-                          0,
-                          TEST_NAME_ENTRY_MAX_LENGTH
-                        ),
-                      ],
-                    },
-                  ]
-                : []),
-            ],
-          } as TestSuiteManifest,
-          status: 200,
+          run_id: MOCK_RUN_ID,
+          suite_id: expectedSuiteId,
+          ...(expectedBranch !== undefined
+            ? {
+                branch: expectedBranch,
+              }
+            : {}),
+          ...(expectedCommit !== undefined
+            ? {
+                commit: expectedCommit,
+              }
+            : {}),
         },
+    userAgentRegex,
     {
-      repeat: failToFetchManifest ? 3 : 1,
+      expectPluginToBeEnabled,
+      expectResultsToBeUploaded,
+      expectedApiKey,
+      expectedSuiteId,
     }
-  );
-  if (expectResultsToBeUploaded) {
-    const uploadUrl =
-      "https://s3.mock.amazonaws.com/unflakable-backend-mock-test-uploads/teams/MOCK_TEAM_ID/" +
-      `suites/${expectedSuiteId}/runs/upload/MOCK_UPLOAD_ID?X-Amz-Signature=MOCK_SIGNATURE`;
-    fetchMock.postOnce(
-      {
-        url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/runs/upload`,
-        headers: {
-          Authorization: `Bearer ${expectedApiKey}`,
-          "Content-Type": "application/json",
-        },
-        matcher: (_url, { body }) => {
-          expect(body).toBe(undefined);
-          return true;
-        },
-      },
-      (): MockResponse => ({
-        body: {
-          upload_id: "MOCK_UPLOAD_ID",
-        },
-        headers: {
-          Location: uploadUrl,
-        },
-        status: 201,
-      })
-    );
-
-    let runRequest: CreateTestSuiteRunInlineRequest | null = null;
-    fetchMock.putOnce(
-      {
-        url: uploadUrl,
-        headers: {
-          "Content-Encoding": "gzip",
-          "Content-Type": "application/json",
-        },
-        matcher: uploadResultsMatcher(params, results),
-      },
-      (_url: string, { body }: MockRequest): MockResponse => {
-        runRequest = JSON.parse(
-          gunzipSync(body as string).toString()
-        ) as CreateTestSuiteRunInlineRequest;
-
-        return {
-          status: 200,
-        };
-      }
-    );
-    fetchMock.post(
-      {
-        url: `https://app.unflakable.com/api/v1/test-suites/${expectedSuiteId}/runs`,
-        headers: {
-          Authorization: `Bearer ${expectedApiKey}`,
-          "Content-Type": "application/json",
-        },
-        matcher: (_url, { body }) => {
-          const parsedBody = JSON.parse(
-            body as string
-          ) as CreateTestSuiteRunFromUploadRequest;
-          expect(parsedBody.upload_id).toBe("MOCK_UPLOAD_ID");
-          return true;
-        },
-      },
-      (): MockResponse => {
-        expect(runRequest).not.toBeNull();
-        const parsedRequest = runRequest as CreateTestSuiteRunInlineRequest;
-
-        if (failToUploadResults) {
-          return {
-            throws: new Error("mock request failure"),
-          };
-        }
-
-        return {
-          body: {
-            run_id: "MOCK_RUN_ID",
-            suite_id: expectedSuiteId,
-            ...(expectedBranch !== undefined
-              ? {
-                  branch: expectedBranch,
-                }
-              : {}),
-            ...(expectedCommit !== undefined
-              ? {
-                  commit: expectedCommit,
-                }
-              : {}),
-            start_time: parsedRequest.start_time,
-            end_time: parsedRequest.end_time,
-            num_tests:
-              results.failedTests +
-              results.flakyTests +
-              results.quarantinedTests +
-              results.passedTests,
-            num_pass: results.passedTests,
-            num_fail: results.failedSuites,
-            num_flake: results.flakyTests,
-            num_quarantined: results.quarantinedSuites,
-          } as TestSuiteRunPendingSummary,
-          status: 201,
-        };
-      },
-      {
-        repeat: failToUploadResults ? 3 : 1,
-      }
-    );
-  }
-};
-
-const verifyOutput = (
-  {
-    expectPluginToBeEnabled,
-    expectQuarantinedTestsToBeQuarantined,
-    expectQuarantinedTestsToBeSkipped,
-    expectResultsToBeUploaded,
-    expectedFailureRetries,
-    expectedFlakeTestNameSuffix,
-    expectedSuiteId,
-    failToFetchManifest,
-    failToUploadResults,
-    quarantineFlake,
-    skipFailures,
-    skipFlake,
-    skipQuarantined,
-    testNamePattern,
-  }: TestCaseParams,
-  stderrLines: (Uint8Array | string)[],
-  results: ResultCounts
-): void => {
-  // Make sure expected output is present and chalk-formatted correctly.
-
-  /* eslint-disable @typescript-eslint/unbound-method */
-
-  // Test our VerboseReporter customization.
-  (testNamePattern === undefined ||
-    "should pass".match(testNamePattern) !== null
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${PASS} ${formatTestFilename("../integration-input/src/", "pass.test.ts")}`
-  );
-  (testNamePattern === undefined ||
-    "should pass".match(testNamePattern) !== null
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    // This test doesn't have a describe() block, so it's only indented 2 spaces.
-    expect.stringMatching(testResultRegexMatch("pass", "should pass", 2))
-  );
-
-  (!skipFailures &&
-    (testNamePattern === undefined ||
-      "describe block should ([escape regex]?.*$ fail".match(
-        testNamePattern
-      ) !== null)
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${FAIL} ${formatTestFilename("../integration-input/src/", "fail.test.ts")}`
-  );
-  (!skipFailures &&
-    (testNamePattern === undefined ||
-      "describe block should ([escape regex]?.*$ fail".match(
-        testNamePattern
-      ) !== null)
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(
-      testResultRegexMatch("fail", "should ([escape regex]?.*$ fail")
-    )
-  );
-
-  const flakyTest1Name = `should be flaky 1${expectedFlakeTestNameSuffix}`;
-  const flakyTest1ShouldRun =
-    !skipFlake &&
-    (!quarantineFlake ||
-      failToFetchManifest ||
-      !expectQuarantinedTestsToBeSkipped) &&
-    (testNamePattern === undefined ||
-      flakyTest1Name.match(testNamePattern) !== null);
-  (flakyTest1ShouldRun
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${
-      quarantineFlake &&
-      !failToFetchManifest &&
-      expectQuarantinedTestsToBeQuarantined
-        ? `${QUARANTINED} `
-        : ""
-    }${FAIL} ${formatTestFilename(
-      "../integration-input/src/",
-      "flake.test.ts"
-    )}`
-  );
-  // This test should fail then pass (though we're not verifying the order here).
-  (flakyTest1ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(
-      testResultRegexMatch(
-        quarantineFlake && !failToFetchManifest ? "quarantined" : "fail",
-        flakyTest1Name,
-        2
-      )
-    )
-  );
-  (expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest1ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("pass", flakyTest1Name, 2))
-  );
-
-  const flakyTest2Name = `should be flaky 2${expectedFlakeTestNameSuffix}`;
-  const flakyTest2ShouldRun =
-    !skipFlake &&
-    (!quarantineFlake ||
-      failToFetchManifest ||
-      !expectQuarantinedTestsToBeSkipped) &&
-    (testNamePattern === undefined ||
-      flakyTest2Name.match(testNamePattern) !== null);
-  (flakyTest2ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(
-      testResultRegexMatch(
-        quarantineFlake && !failToFetchManifest ? "quarantined" : "fail",
-        flakyTest2Name,
-        2
-      )
-    )
-  );
-  (expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest2ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("pass", flakyTest2Name, 2))
-  );
-
-  (!skipQuarantined &&
-    (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
-    (testNamePattern === undefined ||
-      "describe block should be quarantined".match(testNamePattern) !== null)
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${
-      expectPluginToBeEnabled &&
-      !failToFetchManifest &&
-      expectQuarantinedTestsToBeQuarantined &&
-      !expectQuarantinedTestsToBeSkipped
-        ? `${QUARANTINED} `
-        : ""
-    }${FAIL} ${formatTestFilename(
-      "../integration-input/src/",
-      "quarantined.test.ts"
-    )}`
-  );
-  (!skipQuarantined &&
-    (testNamePattern === undefined ||
-      "describe block should be quarantined".match(testNamePattern) !== null) &&
-    !expectQuarantinedTestsToBeSkipped
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(
-      testResultRegexMatch(
-        expectPluginToBeEnabled &&
-          !failToFetchManifest &&
-          expectQuarantinedTestsToBeQuarantined
-          ? "quarantined"
-          : "fail",
-        "should be quarantined"
-      )
-    )
-  );
-
-  const mixedFailTestShouldRun =
-    !skipFailures &&
-    (testNamePattern === undefined ||
-      "mixed mixed: should fail".match(testNamePattern) !== null);
-  const mixedQuarantinedTestShouldRun =
-    !expectQuarantinedTestsToBeSkipped &&
-    !skipQuarantined &&
-    (testNamePattern === undefined ||
-      "mixed mixed: should be quarantined".match(testNamePattern) !== null);
-  const mixedPassTestShouldRun =
-    testNamePattern === undefined ||
-    "mixed mixed: should pass".match(testNamePattern) !== null;
-
-  // Mixed file containing both a failed test and a quarantined one.
-  (((!expectPluginToBeEnabled ||
-    failToFetchManifest ||
-    !expectQuarantinedTestsToBeQuarantined) &&
-    mixedQuarantinedTestShouldRun) ||
-    mixedFailTestShouldRun
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${FAIL} ${formatTestFilename(
-      "../integration-input/src/",
-      "mixed.test.ts"
-    )}`
-  );
-  (mixedQuarantinedTestShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(
-      testResultRegexMatch(
-        expectPluginToBeEnabled &&
-          !failToFetchManifest &&
-          expectQuarantinedTestsToBeQuarantined
-          ? "quarantined"
-          : "fail",
-        "mixed: should be quarantined"
-      )
-    )
-  );
-  (mixedFailTestShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("fail", "mixed: should fail"))
-  );
-
-  expect(
-    stderrLines.filter((line) =>
-      testResultRegexMatch("pass", "mixed: should pass").test(line as string)
-    )
-  ).toHaveLength(mixedPassTestShouldRun ? 1 : 0);
-
-  // The passed test gets skipped during the retries.
-  if (mixedFailTestShouldRun || mixedQuarantinedTestShouldRun) {
-    expect(
-      stderrLines.filter((line) =>
-        testResultRegexMatch("skipped", "mixed: should pass").test(
-          line as string
-        )
-      )
-    ).toHaveLength(
-      testNamePattern !== undefined &&
-        "mixed mixed: should pass".match(testNamePattern) === null &&
-        expectPluginToBeEnabled
-        ? expectedFailureRetries + 1
-        : expectPluginToBeEnabled
-        ? expectedFailureRetries
-        : testNamePattern !== undefined &&
-          "mixed mixed: should pass".match(testNamePattern) === null
-        ? 1
-        : 0
-    );
-  }
-
-  // Test our SummaryReporter customization.
-  expect(stderrLines).toContain(
-    `\u001b[1mTest Suites: \u001b[22m${
-      results.failedSuites !== 0
-        ? `\u001b[1m\u001b[31m${results.failedSuites} failed\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.quarantinedSuites !== 0
-        ? `\u001b[1m\u001b[33m${results.quarantinedSuites} quarantined\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.skippedSuites !== 0
-        ? `\u001b[1m\u001b[33m${results.skippedSuites} skipped\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.passedSuites !== 0
-        ? `\u001b[1m\u001b[32m${results.passedSuites} passed\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.skippedSuites !== 0
-        ? `${
-            results.failedSuites +
-            results.quarantinedSuites +
-            results.passedSuites
-          } of ${
-            results.failedSuites +
-            results.quarantinedSuites +
-            results.passedSuites +
-            results.skippedSuites
-          }`
-        : results.failedSuites +
-          results.quarantinedSuites +
-          results.passedSuites
-    } total`
-  );
-
-  expect(stderrLines).toContain(
-    `\u001b[1mTests:       \u001b[22m${
-      results.failedTests !== 0
-        ? `\u001b[1m\u001b[31m${results.failedTests} failed\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.flakyTests !== 0
-        ? `\u001b[1m\u001b[95m${results.flakyTests} flaky\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.quarantinedTests !== 0
-        ? `\u001b[1m\u001b[33m${results.quarantinedTests} quarantined\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.skippedTests !== 0
-        ? `\u001b[1m\u001b[33m${results.skippedTests} skipped\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.passedTests !== 0
-        ? `\u001b[1m\u001b[32m${results.passedTests} passed\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.failedTests +
-      results.flakyTests +
-      results.quarantinedTests +
-      results.passedTests +
-      results.skippedTests
-    } total`
-  );
-
-  expect(stderrLines).toContain(
-    `\u001b[1mSnapshots:   \u001b[22m${
-      results.failedSnapshots > 0
-        ? `\u001b[1m\u001b[31m${results.failedSnapshots} failed\u001b[39m\u001b[22m, `
-        : ""
-    }${
-      results.passedSnapshots > 0
-        ? `\u001b[1m\u001b[32m${results.passedSnapshots} passed\u001b[39m\u001b[22m, `
-        : ""
-    }${results.totalSnapshots} total`
-  );
-  // None of the snapshots should be obsolete.
-  expect(stderrLines).not.toContainEqual(
-    expect.stringMatching(new RegExp("[0-9]+ snapshot(:?s)? obsolete"))
-  );
-
-  // The duration here is based on the mocked time, so it should be deterministic.
-  expect(stderrLines).toContainEqual(
-    expect.stringMatching(
-      new RegExp(
-        `${escapeStringRegexp("\u001b[1mTime:\u001b[22m        ")}[0-9.]+ s`
-      )
-    )
-  );
-
-  expect(stderrLines).toContain(
-    `\u001b[2mRan all test suites\u001b[22m\u001b[2m${
-      testNamePattern !== undefined
-        ? ` with tests matching \u001b[22m"${testNamePattern}"\u001b[2m`
-        : ""
-    }.\u001b[22m`
-  );
-
-  (expectPluginToBeEnabled && expectResultsToBeUploaded && !failToUploadResults
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `Unflakable report: https://app.unflakable.com/test-suites/${expectedSuiteId}/runs/MOCK_RUN_ID`
   );
 };
 
@@ -1277,134 +454,111 @@ export const runTestCase = async (
   params: TestCaseParams,
   expectedExitCode: number,
   expectedResults: ResultCounts,
-  mockConfigExplorer: ReturnType<typeof cosmiconfig.cosmiconfigSync>,
-  mockExit: jest.Mock,
-  fetchMock: jest.MockInstance<Response, MockCall> & FetchMockSandbox
+  mockBackend: MockBackend
 ): Promise<void> => {
-  const {
-    expectPluginToBeEnabled,
-    failToUploadResults,
-    git,
-    skipFailures,
-    skipFlake,
-    skipQuarantined,
-    testNamePattern,
-  } = params;
+  const { git, skipFailures, skipFlake, skipQuarantined, testNamePattern } =
+    params;
 
-  (mockConfigExplorer.search as jest.Mock).mockImplementation(
-    (searchFrom?: string): CosmiconfigResult => {
-      expect(searchFrom).toMatch(
-        new RegExp("packages/jest-plugin/test/integration-input$")
-      );
-      return params.config !== null
-        ? {
-            config: params.config,
-            filepath:
-              "MOCK_BASE/packages/jest-plugin/test/integration-input/package.json",
-          }
-        : null;
+  const asyncTestError: AsyncTestError = { error: undefined };
+
+  const unmatchedRequestEndpoints = await addBackendExpectations(
+    params,
+    expectedResults,
+    mockBackend,
+    (error) => {
+      if (asyncTestError.error === undefined) {
+        asyncTestError.error = error ?? new Error("undefined error");
+      } else {
+        console.error("Multiple failed fetch expectations", error);
+      }
     }
   );
 
-  mockSimpleGit(git);
+  const integrationInputPath = path.join("..", "integration-input");
+  const configMockParams: CosmiconfigMockParams = {
+    searchFrom: path.resolve(integrationInputPath),
+    searchResult:
+      params.config !== null
+        ? {
+            config: params.config,
+            filepath: "MOCK_BASE/packages/jest-plugin/test/unflakable.yml",
+          }
+        : null,
+  };
 
-  const results = countResults(params);
+  // We don't directly invoke `jest` because we need to pass `--require` to Node.JS in order to
+  // mock cosmiconfig for testing. Instead, we resolve the binary to an absolute path using `yarn
+  // bin` and then invoke node directly.
+  const jestBin = (
+    await promisify(execFile)("yarn", ["bin", "jest"], {
+      cwd: integrationInputPath,
+      // yarn.CMD isn't executable without a shell on Windows.
+      shell: process.platform === "win32",
+    })
+  ).stdout.trimEnd();
 
-  // The flaky test needs external state to know when it's being retried so that it can pass.
-  process.env.FLAKY_TEST_TEMP = temp.path();
+  const args = [
+    "--require",
+    require.resolve("./force-color.js"),
+    "--require",
+    require.resolve("unflakable-test-common/dist/mock-cosmiconfig"),
+    "--require",
+    require.resolve("unflakable-test-common/dist/mock-git"),
+    jestBin,
+    // --no-cache disables the cache that stores the past timings, which makes the output
+    // non-deterministic since it gets bolded if it exceeds the expected time.
+    "--no-cache",
+    "--reporters",
+    "@unflakable/jest-plugin/dist/reporter",
+    "--runner",
+    "@unflakable/jest-plugin/dist/runner",
+    ...(skipFailures
+      ? ["--testPathIgnorePatterns", "<rootDir>/src/invalid\\.test\\.ts"]
+      : []),
+    ...(testNamePattern !== undefined
+      ? ["--testNamePattern", testNamePattern]
+      : []),
+  ];
 
-  if (skipFailures) {
-    process.env.SKIP_FAILURES = "true";
-  } else {
-    delete process.env.SKIP_FAILURES;
-  }
+  const env = {
+    ...params.envVars,
+    DEBUG: process.env.TEST_DEBUG,
+    // The flaky test needs external state to know when it's being retried so that it can pass.
+    FLAKY_TEST_TEMP: temp.path(),
+    PATH: process.env.PATH,
+    UNFLAKABLE_API_BASE_URL: `http://localhost:${mockBackend.apiServerPort}`,
+    [CONFIG_MOCK_ENV_VAR]: JSON.stringify(configMockParams),
+    [GIT_MOCK_ENV_VAR]: JSON.stringify(git),
+    ...(skipFailures ? { SKIP_FAILURES: "1" } : {}),
+    ...(skipFlake ? { SKIP_FLAKE: "1" } : {}),
+    ...(skipQuarantined ? { SKIP_QUARANTINED: "1" } : {}),
+    // Windows requires these environment variables to be propagated.
+    ...(process.platform === "win32"
+      ? {
+          APPDATA: process.env.APPDATA,
+          LOCALAPPDATA: process.env.LOCALAPPDATA,
+          TMP: process.env.TMP,
+          TEMP: process.env.TEMP,
+        }
+      : {}),
+  };
 
-  if (skipFlake) {
-    process.env.SKIP_FLAKE = "true";
-  } else {
-    delete process.env.SKIP_FLAKE;
-  }
-
-  if (skipQuarantined) {
-    process.env.SKIP_QUARANTINED = "true";
-  } else {
-    delete process.env.SKIP_QUARANTINED;
-  }
-
-  Object.entries(params.envVars).forEach(([name, value]) => {
-    if (value !== undefined) {
-      process.env[name] = value;
-    } else {
-      delete process.env[name];
-    }
-  });
-
-  if (expectPluginToBeEnabled) {
-    addFetchMockExpectations(params, results, fetchMock);
-  }
-
-  let stderrLines: (Uint8Array | string)[] = [];
-  process.stderr.write = jest.fn(
-    (
-      buffer: Uint8Array | string,
-      encoding?: BufferEncoding,
-      cb?: (err?: Error) => void
-    ): boolean => {
-      stderrLines = [
-        ...stderrLines,
-        ...(typeof buffer === "string"
-          ? buffer.split("\n")
-          : [JSON.stringify(buffer)]),
-      ];
-      // split() adds an empty string if the delimiter is the last character; remove it here.
-      if (stderrLines[stderrLines.length - 1] === "") {
-        stderrLines.pop();
-      }
-      //originalStderrWrite(JSON.stringify(buffer));
-      return originalStderrWrite(buffer, encoding, cb);
-    }
-  ) as typeof process.stderr.write;
-
-  try {
-    const runPromise = run(
-      [
-        // Needed so that exit() gets called and we can assert that it's the correct exit code.
-        // NB: Despite the warning, we don't pass --detectOpenHandles since that would also enable
-        // --runInBand and not test the plugin's ability to deal with parallel tests.
-        "--forceExit",
-        // --no-cache disables the cache that stores the past timings, which makes the output
-        // non-deterministic since it gets bolded if it exceeds the expected time.
-        "--no-cache",
-        "--reporters",
-        "@unflakable/jest-plugin/dist/reporter",
-        "--runner",
-        "@unflakable/jest-plugin/dist/runner",
-        ...(skipFailures
-          ? ["--testPathIgnorePatterns", "<rootDir>/src/invalid\\.test\\.ts"]
-          : []),
-        ...(testNamePattern !== undefined
-          ? ["--testNamePattern", testNamePattern]
-          : []),
-      ],
-      "../integration-input"
-    );
-
-    if (failToUploadResults) {
-      await expect(runPromise).rejects.toThrow();
-    } else {
-      await runPromise;
-    }
-  } finally {
-    process.stderr.write = originalStderrWrite;
-  }
-
-  // There shouldn't be any unexpected mock fetch calls.
-  expect(fetchMock.calls("unmatched")).toHaveLength(0);
-  expect(fetchMock).toBeDone();
-
-  expect(results).toEqual(expectedResults);
-  verifyOutput(params, stderrLines, results);
-
-  expect(mockExit).toHaveBeenCalledTimes(1);
-  expect(mockExit).toHaveBeenCalledWith(expectedExitCode);
+  await spawnTestWithTimeout(
+    args,
+    env,
+    integrationInputPath,
+    TEST_TIMEOUT_MS,
+    async (_stdoutLines, stderrLines) => {
+      verifyOutput(
+        params,
+        stderrLines,
+        expectedResults,
+        mockBackend.apiServerPort
+      );
+      await mockBackend.checkExpectations(unmatchedRequestEndpoints);
+    },
+    expectedExitCode,
+    true,
+    asyncTestError
+  );
 };

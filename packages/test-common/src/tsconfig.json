@@ -4,7 +4,8 @@
     "declaration": true,
     "declarationDir": "../dist",
     // Required by Rollup (consumed by Rollup in the *-plugin packages).
-    "module": "esnext"
+    "module": "esnext",
+    "types": ["jest", "node"]
   },
   "include": ["."]
 }

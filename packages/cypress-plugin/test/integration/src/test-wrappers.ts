@@ -1,16 +1,11 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
-import {
-  apiServer,
-  objectStoreServer,
-  runTestCase,
-  TestCaseParams,
-} from "./run-test-case";
+import { mockBackend, runTestCase, TestCaseParams } from "./run-test-case";
 import path from "path";
-import _debug from "debug";
 import cypressPackage from "cypress/package.json";
 import { SummaryTotals } from "./parse-output";
 import * as os from "os";
+import * as util from "util";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -23,8 +18,6 @@ declare global {
     }
   }
 }
-
-const debug = _debug("unflakable:integration-test:test-wrappers");
 
 export type TestCase = {
   params: Partial<TestCaseParams>;
@@ -110,30 +103,14 @@ export const integrationTest = (
   )
     .then(done)
     .catch((e) => {
-      done(e as string | { message: string });
+      // Ensures any chained `cause` gets printed.
+      done(util.inspect(e, { colors: true, depth: 5 }));
     });
 };
 
 export const integrationTestSuite = (runTests: () => void): void => {
-  beforeEach(async () => {
-    await apiServer.start();
-    debug(
-      `Listening for mock API requests on http://localhost:${apiServer.port}`
-    );
-
-    await objectStoreServer.start();
-    debug(
-      `Listening for mock S3 requests on http://localhost:${objectStoreServer.port}`
-    );
-  });
-
-  afterEach(async () => {
-    debug(`Stopping mock API server`);
-    await apiServer.stop();
-
-    debug(`Stopping mock S3 server`);
-    return objectStoreServer.stop();
-  });
+  beforeEach(() => mockBackend.start());
+  afterEach(() => mockBackend.stop());
 
   const cypressMinorVersion = cypressPackage.version.match(/^[^.]+\.[^.]+/);
   const nodeMajorVersion = process.version.match(/^[^.]+/);

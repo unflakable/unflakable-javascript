@@ -1,44 +1,38 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
 import {
-  CreateTestSuiteRunFromUploadRequest,
   CreateTestSuiteRunInlineRequest,
   TEST_NAME_ENTRY_MAX_LENGTH,
   TestAttemptResult,
   TestRunRecord,
-  TestSuiteManifest,
-  TestSuiteRunPendingSummary,
 } from "@unflakable/js-api";
 import { gunzipSync } from "zlib";
 import { UnflakableConfig } from "@unflakable/plugins-common";
-import {
-  CompletedRequest,
-  getLocal as getLocalHttpServer,
-  MockedEndpoint,
-} from "mockttp";
+import { CompletedRequest } from "mockttp";
 import _debug from "debug";
-import { execFile, spawn } from "child_process";
-import type {
-  CallbackResponseMessageResult,
-  CallbackResponseResult,
-} from "mockttp/dist/rules/requests/request-handler-definitions";
-import { promisify, TextDecoder } from "util";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import {
   CONFIG_MOCK_ENV_VAR,
   CosmiconfigMockParams,
-} from "cypress-integration-common/dist/config";
+} from "unflakable-test-common/dist/config";
 import {
   GIT_MOCK_ENV_VAR,
   SimpleGitMockParams,
-} from "cypress-integration-common/dist/git";
+} from "unflakable-test-common/dist/git";
 import path from "path";
 import { SummaryTotals } from "./parse-output";
 import { expect as expectExt } from "@jest/globals";
 import "./matchers";
 import { verifyOutput } from "./verify-output";
-import treeKill from "tree-kill";
-
-const debug = _debug("unflakable:integration-test:run-test-case");
+import {
+  MockBackend,
+  UnmatchedEndpoints,
+} from "unflakable-test-common/dist/mock-backend";
+import {
+  AsyncTestError,
+  spawnTestWithTimeout,
+} from "unflakable-test-common/dist/spawn";
 
 // Jest times out after 120 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
@@ -172,14 +166,7 @@ export const specPattern = (params: TestCaseParams): string => {
 const specRepoPath = (params: TestCaseParams, specNameStub: string): string =>
   params.expectedRepoRelativePathPrefix + specProjectPath(params, specNameStub);
 
-export const apiServer = getLocalHttpServer({
-  // debug: true,
-  suggestChanges: false,
-});
-export const objectStoreServer = getLocalHttpServer({
-  // debug: true,
-  suggestChanges: false,
-});
+export const mockBackend = new MockBackend();
 
 export const MOCK_RUN_ID = "MOCK_RUN_ID";
 const TIMESTAMP_REGEX =
@@ -455,20 +442,18 @@ const verifyUploadResults = (
   );
 };
 
-const addFetchMockExpectations = async (
+const addBackendExpectations = async (
   params: TestCaseParams,
   summaryTotals: SummaryTotals,
   onError: (e: unknown) => void
-): Promise<{
-  unmatchedApiRequestEndpoint: MockedEndpoint;
-  unmatchedObjectStoreRequestEndpoint: MockedEndpoint;
-}> => {
+): Promise<UnmatchedEndpoints> => {
   const {
     expectedApiKey,
     expectedBranch,
     expectedCommit,
     expectedFlakeTestNameSuffix,
     expectedSuiteId,
+    expectPluginToBeEnabled,
     expectResultsToBeUploaded,
     failToFetchManifest,
     failToUploadResults,
@@ -477,258 +462,102 @@ const addFetchMockExpectations = async (
     quarantineHookSkip,
   } = params;
 
-  const onUnmatchedRequest = (
-    request: CompletedRequest
-  ): CallbackResponseResult => {
-    onError(new Error(`Unexpected request ${request.method} ${request.path}`));
-    return { statusCode: 500 };
+  const manifest = {
+    quarantined_tests: [
+      {
+        test_id: "TEST_QUARANTINED",
+        filename: specRepoPath(params, "quarantined"),
+        name: ["describe block", "should be quarantined"],
+      },
+      {
+        test_id: "TEST_MIXED_QUARANTINED_FAIL",
+        filename: specRepoPath(params, "mixed/mixed"),
+        name: [
+          "spec with mixed test results",
+          "mixed: failure should be quarantined",
+        ],
+      },
+      {
+        test_id: "TEST_MIXED_QUARANTINED_FLAKE",
+        filename: specRepoPath(params, "mixed/mixed"),
+        name: [
+          "spec with mixed test results",
+          "mixed: flake should be quarantined",
+        ],
+      },
+      {
+        test_id: "TEST_QUARANTINED_PENDING",
+        filename: specRepoPath(params, "pending"),
+        name: ["suite name", "suite test should be quarantined and pending"],
+      },
+      ...(quarantineFlake
+        ? [
+            {
+              test_id: "TEST_FLAKE",
+              filename: specRepoPath(params, "flake"),
+              name: [
+                `should be flaky${expectedFlakeTestNameSuffix}`.substring(
+                  0,
+                  TEST_NAME_ENTRY_MAX_LENGTH
+                ),
+              ],
+            },
+            {
+              test_id: "TEST_MIXED_FLAKE",
+              filename: specRepoPath(params, "mixed/mixed"),
+              name: ["spec with mixed test results", "mixed: should be flaky"],
+            },
+          ]
+        : []),
+      ...(quarantineHookFail
+        ? [
+            {
+              test_id: "TEST_HOOK_FAIL",
+              filename: specRepoPath(params, "hook-fail"),
+              name: ["describe block", "should fail due to hook"],
+            },
+          ]
+        : []),
+      ...(quarantineHookSkip
+        ? [
+            {
+              test_id: "TEST_HOOK_SKIP",
+              filename: specRepoPath(params, "hook-fail"),
+              name: ["describe block", "should be skipped"],
+            },
+          ]
+        : []),
+    ],
   };
 
-  const unmatchedApiRequestEndpoint = await apiServer
-    .forUnmatchedRequest()
-    .thenCallback(onUnmatchedRequest);
-  const unmatchedObjectStoreRequestEndpoint = await objectStoreServer
-    .forUnmatchedRequest()
-    .thenCallback(onUnmatchedRequest);
-
-  if (!params.expectPluginToBeEnabled) {
-    return {
-      unmatchedApiRequestEndpoint,
-      unmatchedObjectStoreRequestEndpoint,
-    };
-  }
-
-  await apiServer
-    .forGet(`/api/v1/test-suites/${expectedSuiteId}/manifest`)
-    .times(failToFetchManifest ? 3 : 1)
-    .withHeaders({
-      Authorization: `Bearer ${expectedApiKey}`,
-    })
-    .thenCallback((request): CallbackResponseResult => {
-      try {
-        expect(request.headers["user-agent"]).toMatch(userAgentRegex);
-
-        if (failToFetchManifest) {
-          return "reset";
-        }
-
-        const responseBody: TestSuiteManifest = {
-          quarantined_tests: [
-            {
-              test_id: "TEST_QUARANTINED",
-              filename: specRepoPath(params, "quarantined"),
-              name: ["describe block", "should be quarantined"],
-            },
-            {
-              test_id: "TEST_MIXED_QUARANTINED_FAIL",
-              filename: specRepoPath(params, "mixed/mixed"),
-              name: [
-                "spec with mixed test results",
-                "mixed: failure should be quarantined",
-              ],
-            },
-            {
-              test_id: "TEST_MIXED_QUARANTINED_FLAKE",
-              filename: specRepoPath(params, "mixed/mixed"),
-              name: [
-                "spec with mixed test results",
-                "mixed: flake should be quarantined",
-              ],
-            },
-            {
-              test_id: "TEST_QUARANTINED_PENDING",
-              filename: specRepoPath(params, "pending"),
-              name: [
-                "suite name",
-                "suite test should be quarantined and pending",
-              ],
-            },
-            ...(quarantineFlake
-              ? [
-                  {
-                    test_id: "TEST_FLAKE",
-                    filename: specRepoPath(params, "flake"),
-                    name: [
-                      `should be flaky${expectedFlakeTestNameSuffix}`.substring(
-                        0,
-                        TEST_NAME_ENTRY_MAX_LENGTH
-                      ),
-                    ],
-                  },
-                  {
-                    test_id: "TEST_MIXED_FLAKE",
-                    filename: specRepoPath(params, "mixed/mixed"),
-                    name: [
-                      "spec with mixed test results",
-                      "mixed: should be flaky",
-                    ],
-                  },
-                ]
-              : []),
-            ...(quarantineHookFail
-              ? [
-                  {
-                    test_id: "TEST_HOOK_FAIL",
-                    filename: specRepoPath(params, "hook-fail"),
-                    name: ["describe block", "should fail due to hook"],
-                  },
-                ]
-              : []),
-            ...(quarantineHookSkip
-              ? [
-                  {
-                    test_id: "TEST_HOOK_SKIP",
-                    filename: specRepoPath(params, "hook-fail"),
-                    name: ["describe block", "should be skipped"],
-                  },
-                ]
-              : []),
-          ],
-        };
-
-        return {
-          statusCode: 200,
-          json: responseBody,
-        };
-      } catch (e: unknown) {
-        onError(e);
-        return { statusCode: 500 };
-      }
-    });
-
-  if (expectResultsToBeUploaded) {
-    const uploadPath =
-      `/unflakable-backend-mock-test-uploads/teams/MOCK_TEAM_ID/suites/${expectedSuiteId}/runs/` +
-      `upload/MOCK_UPLOAD_ID`;
-    const uploadQuery = "?X-Amz-Signature=MOCK_SIGNATURE";
-
-    await apiServer
-      .forPost(`/api/v1/test-suites/${expectedSuiteId}/runs/upload`)
-      .once()
-      .withHeaders({
-        Authorization: `Bearer ${expectedApiKey}`,
-        "Content-Type": "application/json",
-      })
-      .thenCallback(async (request) => {
-        try {
-          expect(await request.body.getText()).toBe("");
-          return {
-            statusCode: 201,
-            headers: {
-              Location: `http://localhost:${objectStoreServer.port}${uploadPath}${uploadQuery}`,
-            },
-            json: {
-              upload_id: "MOCK_UPLOAD_ID",
-            },
-          };
-        } catch (e) {
-          onError(e);
-          return {
-            statusCode: 500,
-          };
-        }
-      });
-
-    let runRequest: CreateTestSuiteRunInlineRequest | null = null;
-    await objectStoreServer
-      .forPut(uploadPath)
-      .once()
-      .withExactQuery(uploadQuery)
-      .withHeaders({
-        "Content-Encoding": "gzip",
-        "Content-Type": "application/json",
-      })
-      .thenCallback((request): CallbackResponseMessageResult => {
-        try {
-          runRequest = JSON.parse(
-            gunzipSync(request.body.buffer).toString()
-          ) as CreateTestSuiteRunInlineRequest;
-
-          verifyUploadResults(params, summaryTotals, request);
-
-          return {
-            statusCode: 200,
-          };
-        } catch (e) {
-          onError(e);
-          return { statusCode: 500 };
-        }
-      });
-
-    await apiServer
-      .forPost(`/api/v1/test-suites/${expectedSuiteId}/runs`)
-      .times(failToUploadResults ? 3 : 1)
-      .withHeaders({
-        Authorization: `Bearer ${expectedApiKey}`,
-        "Content-Type": "application/json",
-      })
-      .thenCallback(async (request): Promise<CallbackResponseResult> => {
-        try {
-          const body = await request.body.getText();
-          expect(body).not.toBeNull();
-
-          const parsedBody = ((): CreateTestSuiteRunFromUploadRequest => {
-            try {
-              return JSON.parse(
-                body as string
-              ) as CreateTestSuiteRunFromUploadRequest;
-            } catch (e) {
-              throw new Error(`Invalid request body: ${JSON.stringify(body)}`, {
-                cause: e,
-              });
-            }
-          })();
-
-          expect(parsedBody.upload_id).toBe("MOCK_UPLOAD_ID");
-          expect(runRequest).not.toBeNull();
-
-          if (failToUploadResults) {
-            return "reset";
-          }
-
-          const parsedRequest = runRequest as CreateTestSuiteRunInlineRequest;
-
-          return {
-            json: {
-              run_id: MOCK_RUN_ID,
-              suite_id: expectedSuiteId,
-              ...(expectedBranch !== undefined
-                ? {
-                    branch: expectedBranch,
-                  }
-                : {}),
-              ...(expectedCommit !== undefined
-                ? {
-                    commit: expectedCommit,
-                  }
-                : {}),
-              start_time: parsedRequest.start_time,
-              end_time: parsedRequest.end_time,
-              num_tests:
-                summaryTotals.numFailing +
-                summaryTotals.numFlaky +
-                summaryTotals.numQuarantined +
-                summaryTotals.numPassing,
-              num_pass: summaryTotals.numPassing,
-              num_fail: summaryTotals.numFailing,
-              num_flake: summaryTotals.numFlaky,
-              num_quarantined: summaryTotals.numQuarantined,
-            } as TestSuiteRunPendingSummary,
-            statusCode: 201,
-          };
-        } catch (e) {
-          onError(e);
-          return {
-            statusCode: 500,
-          };
-        }
-      });
-  }
-
-  return {
-    unmatchedApiRequestEndpoint,
-    unmatchedObjectStoreRequestEndpoint,
-  };
+  return mockBackend.addExpectations(
+    onError,
+    failToFetchManifest ? null : manifest,
+    (request) => verifyUploadResults(params, summaryTotals, request),
+    failToUploadResults
+      ? null
+      : {
+          run_id: MOCK_RUN_ID,
+          suite_id: expectedSuiteId,
+          ...(expectedBranch !== undefined
+            ? {
+                branch: expectedBranch,
+              }
+            : {}),
+          ...(expectedCommit !== undefined
+            ? {
+                commit: expectedCommit,
+              }
+            : {}),
+        },
+    userAgentRegex,
+    {
+      expectPluginToBeEnabled,
+      expectResultsToBeUploaded,
+      expectedApiKey,
+      expectedSuiteId,
+    }
+  );
 };
 
 // Similar to debug's default formatter, but with timestamps instead of the +Nms at the end of each
@@ -770,16 +599,19 @@ export const runTestCase = async (
     multipleHookErrors,
   } = params;
 
-  const testError = { error: undefined as unknown | undefined };
+  const asyncTestError: AsyncTestError = { error: undefined };
 
-  const { unmatchedApiRequestEndpoint, unmatchedObjectStoreRequestEndpoint } =
-    await addFetchMockExpectations(params, summaryTotals, (error) => {
-      if (testError.error === undefined) {
-        testError.error = error ?? new Error("undefined error");
+  const unmatchedRequestEndpoints = await addBackendExpectations(
+    params,
+    summaryTotals,
+    (error) => {
+      if (asyncTestError.error === undefined) {
+        asyncTestError.error = error ?? new Error("undefined error");
       } else {
         console.error("Multiple failed fetch expectations", error);
       }
-    });
+    }
+  );
 
   const configMockParams: CosmiconfigMockParams = {
     searchFrom: path.resolve(projectPath(params)),
@@ -826,7 +658,7 @@ export const runTestCase = async (
 
   const args = [
     "--require",
-    require.resolve("cypress-integration-common/dist/mock-cosmiconfig"),
+    require.resolve("unflakable-test-common/dist/mock-cosmiconfig"),
     cypressPluginBin,
     ...(params.project === "integration-input-manual"
       ? ["--no-auto-config", "--no-auto-support"]
@@ -860,7 +692,7 @@ export const runTestCase = async (
     // NODE_OPTIONS: "--loader=testdouble",
     // Needed for resolving `cypress-unflakable` path.
     PATH: process.env.PATH,
-    UNFLAKABLE_API_BASE_URL: `http://localhost:${apiServer.port}`,
+    UNFLAKABLE_API_BASE_URL: `http://localhost:${mockBackend.apiServerPort}`,
     [CONFIG_MOCK_ENV_VAR]: JSON.stringify(configMockParams),
     [GIT_MOCK_ENV_VAR]: JSON.stringify(params.git),
     // Windows requires these environment variables to be propagated.
@@ -874,141 +706,22 @@ export const runTestCase = async (
       : {}),
   };
 
-  debug(
-    `Spawning test:\n  args = %o\n  environment = %o\n  cwd = %s`,
+  await spawnTestWithTimeout(
     args,
     env,
-    projectPath(params)
+    projectPath(params),
+    TEST_TIMEOUT_MS,
+    async (stdoutLines) => {
+      verifyOutput(
+        params,
+        stdoutLines,
+        summaryTotals,
+        mockBackend.apiServerPort
+      );
+      await mockBackend.checkExpectations(unmatchedRequestEndpoints);
+    },
+    expectedExitCode,
+    false,
+    asyncTestError
   );
-
-  const cypressChild = spawn("node", args, {
-    cwd: projectPath(params),
-    env,
-  });
-
-  const onOutput = (
-    name: string,
-    onLine: (line: string, now: Date) => void,
-    escapeDebugOutput: boolean
-  ): ((data: Buffer) => void) => {
-    const debugExt = debug.extend(name);
-    const decoder = new TextDecoder("utf-8", { fatal: true });
-
-    const pending = { s: "" };
-
-    // Don't eat the last line of output.
-    cypressChild.on("exit", () => {
-      if (pending.s !== "") {
-        onLine(pending.s, new Date());
-        debugExt(escapeDebugOutput ? JSON.stringify(pending.s) : pending.s);
-      }
-    });
-
-    return (data: Buffer): void => {
-      const now = new Date();
-      // In case data terminates in the middle of a Unicode sequence, we need to use a stateful
-      // TextDecoder with `stream: true`. Otherwise, invalid UTF-8 sequences at the end get
-      // converted to 0xFFFD, which breaks the tests non-deterministically (i.e., makes them flaky).
-      const lines = decoder.decode(data, { stream: true }).split("\n");
-
-      // If the last line is empty, then `dataStr` ends in a linebreak. Otherwise, we have a
-      // partial line that we want to defer until the next call.
-      lines.slice(0, lines.length - 1).forEach((line, idx) => {
-        const lineWithPending = idx === 0 ? pending.s + line : line;
-        onLine(lineWithPending, now);
-        debugExt(
-          escapeDebugOutput ? JSON.stringify(lineWithPending) : lineWithPending
-        );
-      });
-
-      pending.s = lines[lines.length - 1];
-    };
-  };
-
-  const stdoutLines = [] as string[];
-  const combinedLines = [] as string[];
-
-  cypressChild.stderr.on(
-    "data",
-    onOutput(
-      "stderr",
-      (line, now) => {
-        combinedLines.push(`${now.toISOString()} ${line}`);
-      },
-      // Don't escape stderr output since it likely comes from debug output in the subprocess, which
-      // is intended for human consumption and not for verifying test results.
-      false
-    )
-  );
-  cypressChild.stdout.on(
-    "data",
-    onOutput(
-      "stdout",
-      (line, now) => {
-        stdoutLines.push(line);
-        combinedLines.push(`${now.toISOString()} ${line}`);
-      },
-      // Escape special characters in debug output so that we can more easily understand test
-      // failures related to unexpected output.
-      true
-    )
-  );
-
-  type ChildResult = {
-    code: number | null;
-    signal: NodeJS.Signals | null;
-  };
-
-  try {
-    const { code, signal } = await new Promise<ChildResult>(
-      (resolve, reject) => {
-        const watchdog = setTimeout(() => {
-          console.error(
-            `Test timed out after ${TEST_TIMEOUT_MS}ms; killing Cypress process tree`
-          );
-          const timeoutError = new Error(
-            `Test timed out after ${TEST_TIMEOUT_MS}ms`
-          );
-          if (testError.error === undefined) {
-            testError.error = timeoutError;
-          }
-          treeKill(cypressChild.pid, "SIGKILL", () => reject(timeoutError));
-        }, TEST_TIMEOUT_MS);
-
-        cypressChild.on("error", (err) => {
-          clearTimeout(watchdog);
-          reject(err);
-        });
-        cypressChild.on("exit", (code, signal) => {
-          clearTimeout(watchdog);
-          resolve({ code, signal });
-        });
-      }
-    );
-
-    if (testError.error !== undefined) {
-      throw testError.error;
-    }
-
-    verifyOutput(params, stdoutLines, summaryTotals, apiServer.port);
-
-    expect(signal).toBe(null);
-    expect(code).toBe(expectedExitCode);
-
-    expect(await apiServer.getPendingEndpoints()).toStrictEqual([
-      unmatchedApiRequestEndpoint,
-    ]);
-    expect(await objectStoreServer.getPendingEndpoints()).toStrictEqual([
-      unmatchedObjectStoreRequestEndpoint,
-    ]);
-  } catch (e: unknown) {
-    // Jest doesn't have a built-in setting for printing console logs only for failed tests, so we
-    // just defer the output until this catch block and attach it to the error. See
-    // https://github.com/jestjs/jest/issues/4156. We don't call console.log() directly here because
-    // that output gets printed before the failed test, whereas the error gets printed immediately
-    // after, which makes it easy to associate with the corresponding test.
-    throw new Error(`Test failed with output:\n\n${combinedLines.join("\n")}`, {
-      cause: e,
-    });
-  }
 };

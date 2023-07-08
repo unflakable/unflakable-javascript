@@ -3,12 +3,10 @@
 const { openDevToolsOnLaunch } = require("config-js/devtools");
 const webpackConfig = require("config-js/webpack");
 const { registerTasks } = require("config-js/tasks");
-const {
-  registerSimpleGitMock,
-} = require("cypress-integration-common/dist/git");
+const { registerSimpleGitMock } = require("unflakable-test-common/dist/git");
 const {
   registerCosmiconfigMock,
-} = require("cypress-integration-common/dist/config");
+} = require("unflakable-test-common/dist/config");
 
 module.exports = {
   /**

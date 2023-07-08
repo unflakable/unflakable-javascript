@@ -4,63 +4,75 @@ import {
   defaultExpectedResults,
   integrationTest,
   integrationTestSuite,
-} from "./common";
+} from "./test-wrappers";
 
-integrationTestSuite(() => {
-  it("run should not fail due to error fetching manifest", () =>
-    integrationTest({
-      params: {
-        failToFetchManifest: true,
-        skipFailures: true,
-        skipFlake: true,
-        skipQuarantined: true,
+integrationTestSuite((mockBackend) => {
+  it("run should not fail due to error fetching manifest", (done) =>
+    integrationTest(
+      {
+        params: {
+          failToFetchManifest: true,
+          skipFailures: true,
+          skipFlake: true,
+          skipQuarantined: true,
+        },
+        expectedExitCode: 0,
+        expectedResults: {
+          failedSuites: 0,
+          failedTests: 0,
+          flakyTests: 0,
+          passedSuites: 2,
+          passedTests: 2,
+          quarantinedSuites: 0,
+          quarantinedTests: 0,
+          skippedSuites: 3,
+          skippedTests: 6,
+          passedSnapshots: 0,
+          failedSnapshots: 0,
+          totalSnapshots: 0,
+        },
       },
-      expectedExitCode: 0,
-      expectedResults: {
-        failedSuites: 0,
-        failedTests: 0,
-        flakyTests: 0,
-        passedSuites: 2,
-        passedTests: 2,
-        quarantinedSuites: 0,
-        quarantinedTests: 0,
-        skippedSuites: 3,
-        skippedTests: 6,
-        passedSnapshots: 0,
-        failedSnapshots: 0,
-        totalSnapshots: 0,
-      },
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("reporter should print results even if upload fails", () =>
-    integrationTest({
-      params: {
-        failToUploadResults: true,
+  it("reporter should print results even if upload fails", (done) =>
+    integrationTest(
+      {
+        params: {
+          failToUploadResults: true,
+        },
+        expectedExitCode: 1,
+        expectedResults: defaultExpectedResults,
       },
-      expectedExitCode: 1,
-      expectedResults: defaultExpectedResults,
-    }));
+      mockBackend,
+      done
+    ));
 
-  it("reporter should print results even if both manifest fetch and upload fail", () =>
-    integrationTest({
-      params: {
-        failToFetchManifest: true,
-        failToUploadResults: true,
+  it("reporter should print results even if both manifest fetch and upload fail", (done) =>
+    integrationTest(
+      {
+        params: {
+          failToFetchManifest: true,
+          failToUploadResults: true,
+        },
+        expectedExitCode: 1,
+        expectedResults: {
+          failedSuites: 5,
+          failedTests: 4,
+          flakyTests: 2,
+          passedSuites: 1,
+          passedTests: 2,
+          quarantinedSuites: 0,
+          quarantinedTests: 0,
+          skippedSuites: 0,
+          skippedTests: 0,
+          passedSnapshots: 1,
+          failedSnapshots: 0,
+          totalSnapshots: 1,
+        },
       },
-      expectedExitCode: 1,
-      expectedResults: {
-        failedSuites: 5,
-        failedTests: 4,
-        flakyTests: 2,
-        passedSuites: 1,
-        passedTests: 2,
-        quarantinedSuites: 0,
-        quarantinedTests: 0,
-        skippedSuites: 0,
-        skippedTests: 0,
-        passedSnapshots: 1,
-        failedSnapshots: 0,
-        totalSnapshots: 1,
-      },
-    }));
+      mockBackend,
+      done
+    ));
 });

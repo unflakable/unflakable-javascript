@@ -24,10 +24,21 @@ const isExternal = (id) =>
  */
 export default [
   {
-    input: ["src/config.ts", "src/git.ts", "src/mock-cosmiconfig.ts"],
+    input: [
+      "src/config.ts",
+      "src/git.ts",
+      "src/mock-backend.ts",
+      "src/mock-cosmiconfig.ts",
+      "src/mock-git.ts",
+      "src/spawn.ts",
+    ],
     output: {
       dir: "dist",
       format: "cjs",
+      // Jest 28+ provides a .default export, while Jest < 28 directly exports the expect() function
+      // as its top-level module.exports value. Using "compat" here lets us
+      // `import { default as expect } from "expect"` with both versions.
+      interop: (id) => (id === "expect" ? "compat" : "default"),
     },
     external: isExternal,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
