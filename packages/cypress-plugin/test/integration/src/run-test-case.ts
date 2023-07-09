@@ -166,8 +166,6 @@ export const specPattern = (params: TestCaseParams): string => {
 const specRepoPath = (params: TestCaseParams, specNameStub: string): string =>
   params.expectedRepoRelativePathPrefix + specProjectPath(params, specNameStub);
 
-export const mockBackend = new MockBackend();
-
 export const MOCK_RUN_ID = "MOCK_RUN_ID";
 const TIMESTAMP_REGEX =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
@@ -445,6 +443,7 @@ const verifyUploadResults = (
 const addBackendExpectations = async (
   params: TestCaseParams,
   summaryTotals: SummaryTotals,
+  mockBackend: MockBackend,
   onError: (e: unknown) => void
 ): Promise<UnmatchedEndpoints> => {
   const {
@@ -585,7 +584,8 @@ _debug.formatArgs = formatDebugArgsWithTimestamp;
 export const runTestCase = async (
   params: TestCaseParams,
   expectedExitCode: number,
-  summaryTotals: SummaryTotals
+  summaryTotals: SummaryTotals,
+  mockBackend: MockBackend
 ): Promise<void> => {
   const {
     skipFailures,
@@ -604,6 +604,7 @@ export const runTestCase = async (
   const unmatchedRequestEndpoints = await addBackendExpectations(
     params,
     summaryTotals,
+    mockBackend,
     (error) => {
       if (asyncTestError.error === undefined) {
         asyncTestError.error = error ?? new Error("undefined error");

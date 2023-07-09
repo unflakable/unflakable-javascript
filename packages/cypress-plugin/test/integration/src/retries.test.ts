@@ -6,7 +6,7 @@ import {
   integrationTestSuite,
 } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   describe.each(["CLI", "config"] as ("CLI" | "config")[])(
     "set failureRetries via %s",
     (mode) => {
@@ -32,6 +32,7 @@ integrationTestSuite(() => {
               numFailing: 8,
             },
           },
+          mockBackend,
           done
         ));
 
@@ -51,6 +52,7 @@ integrationTestSuite(() => {
               expectedRetries: 1,
             },
           },
+          mockBackend,
           done
         ));
 
@@ -70,6 +72,7 @@ integrationTestSuite(() => {
               expectedRetries: 3,
             },
           },
+          mockBackend,
           done
         ));
     }

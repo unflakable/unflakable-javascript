@@ -6,7 +6,7 @@ import {
   integrationTestSuite,
 } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("run should not fail due to error fetching manifest", (done) =>
     integrationTest(
       {
@@ -31,6 +31,7 @@ integrationTestSuite(() => {
           numTests: 19,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -42,6 +43,7 @@ integrationTestSuite(() => {
         },
         expectedExitCode: 1,
       },
+      mockBackend,
       done
     ));
 
@@ -61,6 +63,7 @@ integrationTestSuite(() => {
           numQuarantined: 0,
         },
       },
+      mockBackend,
       done
     ));
 });

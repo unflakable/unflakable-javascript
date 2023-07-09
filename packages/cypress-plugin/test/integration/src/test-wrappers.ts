@@ -1,11 +1,12 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
-import { mockBackend, runTestCase, TestCaseParams } from "./run-test-case";
+import { runTestCase, TestCaseParams } from "./run-test-case";
 import path from "path";
 import cypressPackage from "cypress/package.json";
 import { SummaryTotals } from "./parse-output";
 import * as os from "os";
 import * as util from "util";
+import { MockBackend } from "unflakable-test-common/dist/mock-backend";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -39,6 +40,7 @@ export const defaultSummaryTotals: SummaryTotals = {
 
 export const integrationTest = (
   testCase: TestCase,
+  mockBackend: MockBackend,
   done: jest.DoneCallback
 ): void => {
   void runTestCase(
@@ -99,7 +101,8 @@ export const integrationTest = (
       },
     },
     testCase.expectedExitCode ?? defaultExitCode,
-    testCase.summaryTotals ?? defaultSummaryTotals
+    testCase.summaryTotals ?? defaultSummaryTotals,
+    mockBackend
   )
     .then(done)
     .catch((e) => {
@@ -108,7 +111,11 @@ export const integrationTest = (
     });
 };
 
-export const integrationTestSuite = (runTests: () => void): void => {
+export const integrationTestSuite = (
+  runTests: (mockBackend: MockBackend) => void
+): void => {
+  const mockBackend = new MockBackend();
+
   beforeEach(() => mockBackend.start());
   afterEach(() => mockBackend.stop());
 
@@ -134,7 +141,7 @@ export const integrationTestSuite = (runTests: () => void): void => {
         describe(`Node ${
           nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
         }`, () => {
-          runTests();
+          runTests(mockBackend);
         });
       }
     );

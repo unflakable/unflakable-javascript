@@ -6,7 +6,7 @@ import {
   integrationTestSuite,
 } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("emoji test names should be allowed", (done) =>
     integrationTest(
       {
@@ -17,6 +17,7 @@ integrationTestSuite(() => {
           },
         },
       },
+      mockBackend,
       done
     ));
 
@@ -37,6 +38,7 @@ integrationTestSuite(() => {
           numQuarantined: 5,
         },
       },
+      mockBackend,
       done
     ));
 });

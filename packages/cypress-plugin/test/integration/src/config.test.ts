@@ -2,7 +2,7 @@
 
 import { integrationTestSuite, integrationTest } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("set test suite ID via config", (done) =>
     integrationTest(
       {
@@ -16,6 +16,7 @@ integrationTestSuite(() => {
           expectedSuiteId: "MOCK_SUITE_ID_CONFIG",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -33,6 +34,7 @@ integrationTestSuite(() => {
           expectedSuiteId: "MOCK_SUITE_ID_ENV",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -47,6 +49,7 @@ integrationTestSuite(() => {
           expectedSuiteId: "MOCK_SUITE_ID_CLI",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -65,6 +68,7 @@ integrationTestSuite(() => {
           expectedSuiteId: "MOCK_SUITE_ID_CLI",
         },
       },
+      mockBackend,
       done
     ));
 });

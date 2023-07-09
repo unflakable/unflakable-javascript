@@ -7,7 +7,7 @@ import {
 } from "./test-wrappers";
 import { QuarantineMode } from "@unflakable/plugins-common";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("quarantine flaky test", (done) =>
     integrationTest(
       {
@@ -21,6 +21,7 @@ integrationTestSuite(() => {
           numQuarantined: 5,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -43,6 +44,7 @@ integrationTestSuite(() => {
           numTests: 19,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -76,6 +78,7 @@ integrationTestSuite(() => {
             numTests: 19,
           },
         },
+        mockBackend,
         done
       )
   );

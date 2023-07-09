@@ -2,7 +2,7 @@
 
 import { integrationTest, integrationTestSuite } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("run should succeed when before() fails both tests are quarantined", (done) =>
     integrationTest(
       {
@@ -23,6 +23,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -48,6 +49,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -73,6 +75,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -95,6 +98,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -118,6 +122,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -141,6 +146,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -164,6 +170,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -188,6 +195,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -212,6 +220,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -238,6 +247,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -262,6 +272,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -288,6 +299,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -310,6 +322,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -334,6 +347,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -358,6 +372,7 @@ integrationTestSuite(() => {
           numTests: 2,
         },
       },
+      mockBackend,
       done
     ));
 });

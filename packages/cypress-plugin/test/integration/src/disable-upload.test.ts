@@ -2,7 +2,7 @@
 
 import { integrationTest, integrationTestSuite } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("disable upload via config", (done) =>
     integrationTest(
       {
@@ -13,6 +13,7 @@ integrationTestSuite(() => {
           expectResultsToBeUploaded: false,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -26,6 +27,7 @@ integrationTestSuite(() => {
           expectResultsToBeUploaded: false,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -41,6 +43,7 @@ integrationTestSuite(() => {
           expectResultsToBeUploaded: false,
         },
       },
+      mockBackend,
       done
     ));
 
@@ -56,6 +59,7 @@ integrationTestSuite(() => {
           },
         },
       },
+      mockBackend,
       done
     ));
 });

@@ -6,7 +6,7 @@ import {
   integrationTestSuite,
 } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it.each(["CLI", "config"] as ("CLI" | "config")[])(
     "set quarantineMode to no_quarantine via %s",
     (mode, done) =>
@@ -35,6 +35,7 @@ integrationTestSuite(() => {
             numFlaky: 3,
           },
         },
+        mockBackend,
         done
       )
   );

@@ -3,7 +3,7 @@
 import { integrationTest, integrationTestSuite } from "./test-wrappers";
 import path from "path";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it("no git repo", (done) =>
     integrationTest(
       {
@@ -17,6 +17,7 @@ integrationTestSuite(() => {
           },
         },
       },
+      mockBackend,
       done
     ));
 
@@ -47,6 +48,7 @@ integrationTestSuite(() => {
           expectedBranch: "pull/MOCK_PR_NUMBER/merge",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -62,6 +64,7 @@ integrationTestSuite(() => {
           expectedCommit: "MOCK_COMMIT_ENV",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -84,6 +87,7 @@ integrationTestSuite(() => {
           expectedCommit: "MOCK_COMMIT_CLI",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -100,6 +104,7 @@ integrationTestSuite(() => {
           expectedRepoRelativePathPrefix: "",
         },
       },
+      mockBackend,
       done
     ));
 
@@ -114,6 +119,7 @@ integrationTestSuite(() => {
           expectedRepoRelativePathPrefix: "",
         },
       },
+      mockBackend,
       done
     ));
 });

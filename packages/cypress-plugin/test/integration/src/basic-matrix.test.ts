@@ -10,7 +10,7 @@ import { QuarantineMode } from "@unflakable/plugins-common";
 import { afterEach, beforeEach } from "@jest/globals";
 import * as fs from "fs/promises";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   Object.entries(TEST_PROJECTS).forEach(([projectName, project]) => {
     describe(
       projectName === "integration-input"
@@ -84,6 +84,7 @@ integrationTestSuite(() => {
                               }
                             : defaultSummaryTotals,
                       },
+                      mockBackend,
                       done
                     )
                 );

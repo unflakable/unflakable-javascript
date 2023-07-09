@@ -7,7 +7,7 @@ import {
 } from "./test-wrappers";
 import { QuarantineMode } from "@unflakable/plugins-common";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   it.each(["ignore_failures", "skip_tests"] as QuarantineMode[])(
     "test names longer than 4096 chars should be truncated w/ quarantineMode = %s",
     (quarantineMode, done) =>
@@ -35,6 +35,7 @@ integrationTestSuite(() => {
                 }
               : defaultSummaryTotals,
         },
+        mockBackend,
         done
       )
   );
@@ -66,6 +67,7 @@ integrationTestSuite(() => {
             numQuarantined: quarantineMode === "skip_tests" ? 6 : 5,
           },
         },
+        mockBackend,
         done
       )
   );

@@ -6,7 +6,7 @@ import {
   integrationTestSuite,
 } from "./test-wrappers";
 
-integrationTestSuite(() => {
+integrationTestSuite((mockBackend) => {
   const expectedExitCodeWithPluginDisabled = 11;
   const summaryTotalsWithPluginDisabled = {
     ...defaultSummaryTotals,
@@ -27,6 +27,7 @@ integrationTestSuite(() => {
         expectedExitCode: expectedExitCodeWithPluginDisabled,
         summaryTotals: summaryTotalsWithPluginDisabled,
       },
+      mockBackend,
       done
     ));
 
@@ -42,6 +43,7 @@ integrationTestSuite(() => {
         expectedExitCode: expectedExitCodeWithPluginDisabled,
         summaryTotals: summaryTotalsWithPluginDisabled,
       },
+      mockBackend,
       done
     ));
 
@@ -57,6 +59,7 @@ integrationTestSuite(() => {
           },
         },
       },
+      mockBackend,
       done
     ));
 });
