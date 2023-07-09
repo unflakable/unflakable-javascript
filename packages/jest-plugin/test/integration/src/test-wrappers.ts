@@ -2,7 +2,7 @@
 
 import jestPackage from "jest/package.json";
 import path from "path";
-import { ResultCounts, runTestCase, TestCaseParams } from "./runTestCase";
+import { ResultCounts, runTestCase, TestCaseParams } from "./run-test-case";
 import { MockBackend } from "unflakable-test-common/dist/mock-backend";
 import * as util from "util";
 

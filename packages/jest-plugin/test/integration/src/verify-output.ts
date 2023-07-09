@@ -2,7 +2,7 @@
 
 // These are the chalk-formatted strings that include console color codes.
 import escapeStringRegexp from "escape-string-regexp";
-import { MOCK_RUN_ID, ResultCounts, TestCaseParams } from "./runTestCase";
+import { MOCK_RUN_ID, ResultCounts, TestCaseParams } from "./run-test-case";
 import { TestAttemptResult } from "@unflakable/js-api";
 
 const FAIL =
