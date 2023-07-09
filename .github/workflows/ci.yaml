@@ -16,7 +16,7 @@ on:
 
 jobs:
   check:
-    name: Typecheck, lint, and audit
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
