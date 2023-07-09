@@ -3249,10 +3249,7 @@ __metadata:
     simple-git: ^3.16.0
     typescript: ^4.9.5
   peerDependencies:
-    "@jest/console": 25.1.0 - 29
-    "@jest/reporters": 25.1.0 - 29
-    jest-runner: 25.1.0 - 29
-    jest-util: 25.1.0 - 29
+    jest: 25.1.0 - 29
   languageName: unknown
   linkType: soft
 
