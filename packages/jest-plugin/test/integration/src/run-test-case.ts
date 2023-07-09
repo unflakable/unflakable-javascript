@@ -29,9 +29,9 @@ import {
   spawnTestWithTimeout,
 } from "unflakable-test-common/dist/spawn";
 
-// Jest times out after 40 seconds, so we bail early here to allow time to print the
+// Jest times out after 120 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
-const TEST_TIMEOUT_MS = 30000;
+const TEST_TIMEOUT_MS = 110000;
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-jest-plugin/(?:[-0-9.]|alpha|beta)+ \\(Jest [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
@@ -481,7 +481,14 @@ export const runTestCase = async (
       params.config !== null
         ? {
             config: params.config,
-            filepath: "MOCK_BASE/packages/jest-plugin/test/unflakable.yml",
+            filepath: path.join(
+              "MOCK_BASE",
+              "packages",
+              "jest-plugin",
+              "test",
+              "integration-input",
+              "package.json"
+            ),
           }
         : null,
   };

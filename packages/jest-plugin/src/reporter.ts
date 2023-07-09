@@ -42,6 +42,7 @@ import {
   loadApiKey,
   loadConfigSync,
   loadGitRepo,
+  toPosix,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
 
@@ -434,7 +435,7 @@ export default class UnflakableReporter extends BaseReporter {
       )
         .map(
           ([, assertionResults]): TestRunRecord => ({
-            filename: path.relative(repoRoot, testFilePath),
+            filename: toPosix(path.relative(repoRoot, testFilePath)),
             name: testKey(assertionResults[0]),
             attempts: assertionResults
               .map((testResult: UnflakableAssertionResult) => ({

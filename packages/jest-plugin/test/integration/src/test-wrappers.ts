@@ -4,6 +4,7 @@ import jestPackage from "jest/package.json";
 import path from "path";
 import { ResultCounts, runTestCase, TestCaseParams } from "./run-test-case";
 import { MockBackend } from "unflakable-test-common/dist/mock-backend";
+import * as os from "os";
 import * as util from "util";
 
 export type TestCase = {
@@ -98,11 +99,23 @@ export const integrationTestSuite = (
   describe(`Jest ${
     jestMinorVersion !== null ? jestMinorVersion[0] : jestPackage.version
   }`, () => {
-    // Only use Node major version for test name.
-    describe(`Node ${
-      nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
-    }`, () => {
-      runTests(mockBackend);
-    });
+    const platform = os.platform();
+    describe(
+      platform === "darwin"
+        ? `MacOS`
+        : platform === "linux"
+        ? "Linux"
+        : platform === "win32"
+        ? "Windows"
+        : platform,
+      () => {
+        // Only use Node major version for test name.
+        describe(`Node ${
+          nodeMajorVersion !== null ? nodeMajorVersion[0] : process.version
+        }`, () => {
+          runTests(mockBackend);
+        });
+      }
+    );
   });
 };

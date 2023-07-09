@@ -288,12 +288,16 @@ jobs:
 
           # Make chalk emit TTY colors.
           FORCE_COLOR: "1"
-        # FIXME: use Jest plugin once it works on Windows
-        run: yarn workspace cypress-integration test
 
-  jest_integration_tests:
+          UNFLAKABLE_API_KEY: ${{ secrets.UNFLAKABLE_API_KEY }}
+          UNFLAKABLE_SUITE_ID: ${{ github.repository == 'unflakable/unflakable-javascript' && '2QwtGckRudLNUGBsdkVEoSknck1' || '2Qwt9RyPIbOI95C6qjXCzcTelni' }}
+        run: |
+          yarn workspace cypress-integration test `
+            --reporters @unflakable/jest-plugin/dist/reporter `
+            --runner @unflakable/jest-plugin/dist/runner
+
+  jest_linux_integration_tests:
     name: "Jest ${{ matrix.jest }} Linux Node ${{ matrix.node }} Integration Tests"
-    # FIXME: also test on Windows
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs:
@@ -391,6 +395,12 @@ jobs:
 
           # Enable debug logs within the Jest plugin.
           TEST_DEBUG: "unflakable:*"
+
+          # Enable terminal colors for debug() output.
+          DEBUG_COLORS: "1"
+
+          # Make chalk emit TTY colors.
+          FORCE_COLOR: "1"
         run: |
           if [ "${{ github.repository }}" == "unflakable/unflakable-javascript" ]; then
             export UNFLAKABLE_SUITE_ID=29KWCuK12VnU7pkpvWgrGS0woAX
@@ -400,4 +410,112 @@ jobs:
           UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
             yarn workspace jest-integration test \
             --reporters @unflakable/jest-plugin/dist/reporter \
+            --runner @unflakable/jest-plugin/dist/runner
+
+  jest_windows_integration_tests:
+    name: "Jest ${{ matrix.jest }} Windows Node ${{ matrix.node }} Integration Tests"
+    runs-on: windows-2019
+    timeout-minutes: 30
+    needs:
+      # Don't incur the cost of the test matrix if the basic build fails.
+      - check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_jest == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 16
+          - 18
+          - 20
+        jest:
+          - "29.6"
+          - "29.5"
+          - "29.4"
+          - "29.3"
+          - "29.2"
+          - "29.1"
+          - "29.0"
+          - "28.1"
+          - "28.0"
+          - "27.5"
+          - "27.4"
+          - "27.3"
+          - "27.2"
+          - "27.1"
+          - "27.0"
+          - "26.6"
+          - "26.5"
+          - "26.4"
+          - "26.3"
+          - "26.2"
+          - "26.1"
+          - "26.0"
+          - "25.5"
+          - "25.4"
+          - "25.3"
+          - "25.2"
+          - "25.1"
+    env:
+      CYPRESS_INSTALL_BINARY: "0"
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+
+      - id: install
+        run: yarn install --immutable
+
+      - uses: actions/download-artifact@v3
+        with:
+          path: .artifacts
+
+      - name: Install pre-built plugin packages
+        shell: bash
+        run: |
+          curl -Lo jq.exe https://github.com/jqlang/jq/releases/download/jq-1.6/jq-win64.exe
+          cat package.json \
+            | ./jq.exe '. + {"resolutions": (.resolutions + {
+                "@unflakable/jest-plugin": "file:./.artifacts/jest-plugin/package.tgz",
+                "@unflakable/js-api": "file:./.artifacts/js-api/package.tgz"
+              })}' > package-new.json
+          mv package-new.json package.json
+          yarn install --no-immutable
+
+      - name: Set Jest version
+        run: |
+          yarn set-jest-version ${{ matrix.jest }}
+          Select-String -Pattern '^".*jest.*' -Path yarn.lock -Context 0,1
+
+      - name: Set resolution for chalk to 3.0.0
+        if: ${{ startsWith(matrix.jest, '25.')  }}
+        run: yarn set resolution "chalk@npm:^3.0.0 || ^4.0.0" 3.0
+
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common
+
+      - name: Test
+        env:
+          # Enable debug logs within the jest-plugin/test/integration Jest tests that invoke Jest
+          # on the jest-plugin/test/integration-input test cases. WARNING: these are very verbose
+          # but are useful for seeing the raw chalk terminal codes.
+          # DEBUG: unflakable:*
+
+          # Enable debug logs within the Jest plugin.
+          TEST_DEBUG: "unflakable:*"
+
+          # Enable terminal colors for debug() output.
+          DEBUG_COLORS: "1"
+
+          # Make chalk emit TTY colors.
+          FORCE_COLOR: "1"
+
+          UNFLAKABLE_API_KEY: ${{ secrets.UNFLAKABLE_API_KEY }}
+          UNFLAKABLE_SUITE_ID: ${{ github.repository == 'unflakable/unflakable-javascript' && '29KWCuK12VnU7pkpvWgrGS0woAX' || '28UidZ8cSKjRe4g1xkd9EE8noDF' }}
+        run: |
+          yarn workspace jest-integration test `
+            --reporters @unflakable/jest-plugin/dist/reporter `
             --runner @unflakable/jest-plugin/dist/runner

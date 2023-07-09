@@ -32,6 +32,7 @@ import {
   loadApiKey,
   loadConfigSync,
   loadGitRepo,
+  toPosix,
   QuarantineMode,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
@@ -59,7 +60,7 @@ const wrapOnResult =
   async (test: Test, testResult: TestResult): Promise<void> => {
     const testResults = testResult.testResults.map(
       (assertionResult: AssertionResult): UnflakableAssertionResult => {
-        const testFilename = path.relative(repoRoot, test.path);
+        const testFilename = toPosix(path.relative(repoRoot, test.path));
         if (assertionResult.status === FAILED) {
           if (manifest === undefined) {
             debug(
@@ -411,7 +412,7 @@ class UnflakableRunner {
       // Then, we run the remaining test files normally below.
       await tests
         .reduce((promise, test) => {
-          const relPath = path.relative(repoRoot, test.path);
+          const relPath = toPosix(path.relative(repoRoot, test.path));
           const quarantinedTestsInFile = quarantinedTestsByFile[relPath];
           if (
             quarantinedTestsInFile !== undefined &&
@@ -462,7 +463,10 @@ class UnflakableRunner {
         .then(() => {
           const normalTestFiles = tests.filter(
             (test) =>
-              !(path.relative(repoRoot, test.path) in quarantinedTestsByFile)
+              !(
+                toPosix(path.relative(repoRoot, test.path)) in
+                quarantinedTestsByFile
+              )
           );
           if (normalTestFiles.length > 0) {
             debug(

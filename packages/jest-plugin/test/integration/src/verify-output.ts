@@ -5,6 +5,9 @@ import escapeStringRegexp from "escape-string-regexp";
 import { MOCK_RUN_ID, ResultCounts, TestCaseParams } from "./run-test-case";
 import { TestAttemptResult } from "@unflakable/js-api";
 
+const FAIL_SYMBOL = process.platform === "win32" ? "×" : "✕";
+const PASS_SYMBOL = process.platform === "win32" ? "√" : "✓";
+
 const FAIL =
   "\u001b[0m\u001b[7m\u001b[1m\u001b[31m FAIL \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
 const PASS =
@@ -23,13 +26,13 @@ const testResultRegexMatch = (
     `^${" ".repeat(indent ?? 4)}${escapeStringRegexp(
       result === "pass"
         ? // Green
-          "\u001b[32m✓\u001b[39m"
+          `\u001b[32m${PASS_SYMBOL}\u001b[39m`
         : result === "fail"
         ? // Red
-          "\u001b[31m✕\u001b[39m"
+          `\u001b[31m${FAIL_SYMBOL}\u001b[39m`
         : result === "quarantined"
         ? // Yellow
-          "\u001b[33m✕\u001b[39m"
+          `\u001b[33m${FAIL_SYMBOL}\u001b[39m`
         : result === "skipped"
         ? // Yellow
           "\u001b[33m○\u001b[39m"

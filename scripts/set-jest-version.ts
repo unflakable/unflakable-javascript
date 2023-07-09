@@ -1,6 +1,6 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
-import { spawnSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
 import * as semver from "semver";
@@ -20,16 +20,28 @@ type PackageSpec = {
 };
 type Lockfile = { [key in string]: PackageSpec };
 
-const setYarnResolution = (descriptor: string, resolution: string): void => {
+const getYarnPath = (): string =>
+  execSync("yarn config get yarnPath").toString().trimEnd();
+
+const setYarnResolution = (
+  yarnPath: string,
+  descriptor: string,
+  resolution: string
+): void => {
   debug(`Setting yarn resolution \`${descriptor}\` to ${resolution}`);
 
   const outcome = spawnSync(
-    "yarn",
-    ["set", "resolution", descriptor, resolution],
+    "node",
+    // For some reason, yarn.cmd doesn't update the lockfile on Windows, but running node explicitly
+    // with the path to yarn does.
+    [yarnPath, "set", "resolution", descriptor, resolution],
     { stdio: "inherit" }
   );
 
-  if (outcome.status !== 0) {
+  if (outcome.error !== undefined) {
+    console.error("ERROR: Failed to run yarn: %o", outcome.error);
+    process.exit(1);
+  } else if (outcome.status !== 0) {
     console.error("ERROR: Exiting due to yarn error");
     process.exit(1);
   }
@@ -222,6 +234,8 @@ const main = (): never => {
     );
   }
 
+  const yarnPath = getYarnPath();
+
   const maxIterations = 10;
 
   // The jest TS types aren't released very frequently and mostly correspond to major versions, so
@@ -231,6 +245,7 @@ const main = (): never => {
     targetSemVerMinVersion.major <= 29
   ) {
     setYarnResolution(
+      yarnPath,
       "@types/jest@npm:25.1.0 - 29",
       targetSemVerMinVersion.major.toString()
     );
@@ -297,7 +312,7 @@ const main = (): never => {
 
           done = false;
 
-          setYarnResolution(descriptor, packageTargetSemVerRange.raw);
+          setYarnResolution(yarnPath, descriptor, packageTargetSemVerRange.raw);
         });
       }
     });
