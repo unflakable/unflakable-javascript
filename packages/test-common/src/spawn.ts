@@ -138,10 +138,10 @@ export const spawnTestWithTimeout = async (
       throw asyncTestError.error;
     }
 
-    await verifyOutput(stdoutLines, stderrLines);
-
     expect(signal).toBe(null);
     expect(code).toBe(expectedExitCode);
+
+    await verifyOutput(stdoutLines, stderrLines);
   } catch (e: unknown) {
     // Jest doesn't have a built-in setting for printing console logs only for failed tests, so we
     // just defer the output until this catch block and attach it to the error. See
