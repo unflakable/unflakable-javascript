@@ -19,6 +19,7 @@ import {
   normalizeTestName,
   toPosix,
   UnflakableConfig,
+  UnflakableConfigEnabled,
 } from "@unflakable/plugins-common";
 import { printWarning, require, userAgent } from "./utils";
 import { configureMochaReporter } from "./reporter-config";
@@ -505,7 +506,8 @@ ${
         end_time: new Date(results.endedTestsAt).toISOString(),
         test_runs: testRuns,
       },
-      testSuiteId: this.unflakableConfig.testSuiteId,
+      testSuiteId: (this.unflakableConfig as UnflakableConfigEnabled)
+        .testSuiteId,
       apiKey: this.apiKey,
       baseUrl: this.unflakableConfig.apiBaseUrl,
       clientDescription: userAgentStr,

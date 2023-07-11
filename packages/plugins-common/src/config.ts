@@ -9,19 +9,30 @@ const debug = _debug("unflakable:plugins-common:config");
 
 export type QuarantineMode = "no_quarantine" | "skip_tests" | "ignore_failures";
 
-export type UnflakableConfig = {
+type UnflakableConfigInner = {
   apiBaseUrl: string | undefined;
-  enabled: boolean;
   failureRetries: number;
   gitAutoDetect: boolean;
   quarantineMode: QuarantineMode;
-  testSuiteId: string;
   uploadResults: boolean;
 };
 
-type UnflakableConfigFile = Omit<UnflakableConfig, "testSuiteId"> & {
+export type UnflakableConfigEnabled = {
+  enabled: true;
+  testSuiteId: string;
+} & UnflakableConfigInner;
+
+export type UnflakableConfig =
+  | UnflakableConfigEnabled
+  | ({
+      enabled: false;
+      testSuiteId: string | undefined;
+    } & UnflakableConfigInner);
+
+type UnflakableConfigFile = {
+  enabled: boolean;
   testSuiteId: string | undefined;
-};
+} & UnflakableConfigInner;
 
 const defaultConfig: UnflakableConfigFile = {
   apiBaseUrl: undefined,
@@ -196,12 +207,17 @@ const mergeConfigWithEnv = (
     config.testSuiteId.length > 0
   ) {
     debug(`Using suite ID \`${config.testSuiteId}\` from config file`);
-    return config as UnflakableConfig;
-  } else {
+    return config.enabled
+      ? // TypeScript has trouble inferring that these types are correct otherwise.
+        { ...config, enabled: true, testSuiteId: config.testSuiteId }
+      : { ...config, enabled: false };
+  } else if (config.enabled) {
     throw new Error(
       `Unflakable test suite ID not found in config file or ${suiteIdOverride.name} environment ` +
         "variable"
     );
+  } else {
+    return { ...config, enabled: false };
   }
 };
 

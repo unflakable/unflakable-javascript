@@ -5,6 +5,7 @@ import path from "path";
 export {
   QuarantineMode,
   UnflakableConfig,
+  UnflakableConfigEnabled,
   loadApiKey,
   loadConfig,
   loadConfigSync,

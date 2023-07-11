@@ -44,6 +44,7 @@ import {
   loadGitRepo,
   toPosix,
   UnflakableConfig,
+  UnflakableConfigEnabled,
 } from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:reporter");
@@ -414,7 +415,8 @@ export default class UnflakableReporter extends BaseReporter {
     aggregatedResults: AggregatedResult,
     unflakableConfig: UnflakableConfig
   ): Promise<void> {
-    const testSuiteId = unflakableConfig.testSuiteId;
+    const testSuiteId = (unflakableConfig as UnflakableConfigEnabled)
+      .testSuiteId;
 
     const git = unflakableConfig.gitAutoDetect ? await loadGitRepo() : null;
     const repoRoot = git !== null ? await getRepoRoot(git) : this.rootDir;

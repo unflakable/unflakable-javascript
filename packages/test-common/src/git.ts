@@ -5,7 +5,7 @@ import { setSimpleGitFactory } from "@unflakable/plugins-common";
 import { SimpleGit, TaskOptions, Response as GitResponse } from "simple-git";
 import deepEqual from "deep-equal";
 
-const debug = _debug("unflakable:integration-common:git");
+const debug = _debug("unflakable:test-common:git");
 
 export type SimpleGitMockRef = {
   sha: string;

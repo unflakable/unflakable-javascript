@@ -9,7 +9,7 @@ import {
 import type { cosmiconfig, cosmiconfigSync, Options } from "cosmiconfig";
 import { default as expect } from "expect";
 
-const debug = _debug("unflakable:integration-common:config");
+const debug = _debug("unflakable:test-common:config");
 
 const throwUnimplemented = (): never => {
   throw new Error("unimplemented");
