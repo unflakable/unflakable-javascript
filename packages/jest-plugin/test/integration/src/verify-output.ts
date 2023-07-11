@@ -14,8 +14,25 @@ const PASS =
   "\u001b[0m\u001b[7m\u001b[1m\u001b[32m PASS \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
 const QUARANTINED =
   "\u001b[0m\u001b[7m\u001b[1m\u001b[33m QUARANTINED \u001b[39m\u001b[22m\u001b[27m\u001b[0m";
-const formatTestFilename = (path: string, filename: string): string =>
-  `\u001b[2m${path}\u001b[22m\u001b[1m${filename}\u001b[22m`;
+const SLOW_TEST_DETAIL_REGEX =
+  "\u001b\\[0m\u001b\\[1m\u001b\\[41m[0-9.]+ ?.?s\u001b\\[49m\u001b\\[22m\u001b\\[0m";
+const formatTestFilename = (dir: string, filename: string): string =>
+  `\u001b[2m${dir}\u001b[22m\u001b[1m${filename}\u001b[22m`;
+
+const specResultRegexMatch = (
+  result: "fail" | "pass" | "quarantined",
+  dir: string,
+  filename: string
+): RegExp =>
+  // NB: Includes possible slow test duration:
+  // https://github.com/jestjs/jest/blob/6d2632adae0f0fa1fe116d3b475fd9783d0de1b5/packages/jest-reporters/src/getResultHeader.ts#L43
+  new RegExp(
+    `^${escapeStringRegexp(
+      `${result === "quarantined" ? QUARANTINED + " " : ""}${
+        result === "pass" ? PASS : FAIL
+      } ${formatTestFilename(dir, filename)}`
+    )}(?: \\(${SLOW_TEST_DETAIL_REGEX}\\))?$`
+  );
 
 const testResultRegexMatch = (
   result: TestAttemptResult | "skipped",
@@ -76,9 +93,9 @@ export const verifyOutput = (
   // Test our VerboseReporter customization.
   (testNamePattern === undefined ||
     "should pass".match(testNamePattern) !== null
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${PASS} ${formatTestFilename("src/", "pass.test.ts")}`
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(specResultRegexMatch("pass", "src/", "pass.test.ts"))
   );
   (testNamePattern === undefined ||
     "should pass".match(testNamePattern) !== null
@@ -93,9 +110,9 @@ export const verifyOutput = (
       "describe block should ([escape regex]?.*$ fail".match(
         testNamePattern
       ) !== null)
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${FAIL} ${formatTestFilename("src/", "fail.test.ts")}`
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(specResultRegexMatch("fail", "src/", "fail.test.ts"))
   );
   (!skipFailures &&
     (testNamePattern === undefined ||
@@ -118,15 +135,19 @@ export const verifyOutput = (
     (testNamePattern === undefined ||
       flakyTest1Name.match(testNamePattern) !== null);
   (flakyTest1ShouldRun
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${
-      quarantineFlake &&
-      !failToFetchManifest &&
-      expectQuarantinedTestsToBeQuarantined
-        ? `${QUARANTINED} `
-        : ""
-    }${FAIL} ${formatTestFilename("src/", "flake.test.ts")}`
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(
+      specResultRegexMatch(
+        quarantineFlake &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
+        "src/",
+        "flake.test.ts"
+      )
+    )
   );
   // This test should fail then pass (though we're not verifying the order here).
   (flakyTest1ShouldRun
@@ -134,7 +155,11 @@ export const verifyOutput = (
     : expect(stderrLines).not.toContainEqual)(
     expect.stringMatching(
       testResultRegexMatch(
-        quarantineFlake && !failToFetchManifest ? "quarantined" : "fail",
+        quarantineFlake &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
         flakyTest1Name,
         2
       )
@@ -159,7 +184,11 @@ export const verifyOutput = (
     : expect(stderrLines).not.toContainEqual)(
     expect.stringMatching(
       testResultRegexMatch(
-        quarantineFlake && !failToFetchManifest ? "quarantined" : "fail",
+        quarantineFlake &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
         flakyTest2Name,
         2
       )
@@ -171,20 +200,32 @@ export const verifyOutput = (
     expect.stringMatching(testResultRegexMatch("pass", flakyTest2Name, 2))
   );
 
+  (!skipFailures
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(
+      specResultRegexMatch("fail", "src/", "invalid.test.ts")
+    )
+  );
+
   (!skipQuarantined &&
     (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
     (testNamePattern === undefined ||
       "describe block should be quarantined".match(testNamePattern) !== null)
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${
-      expectPluginToBeEnabled &&
-      !failToFetchManifest &&
-      expectQuarantinedTestsToBeQuarantined &&
-      !expectQuarantinedTestsToBeSkipped
-        ? `${QUARANTINED} `
-        : ""
-    }${FAIL} ${formatTestFilename("src/", "quarantined.test.ts")}`
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(
+      specResultRegexMatch(
+        expectPluginToBeEnabled &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined &&
+          !expectQuarantinedTestsToBeSkipped
+          ? "quarantined"
+          : "fail",
+        "src/",
+        "quarantined.test.ts"
+      )
+    )
   );
   (!skipQuarantined &&
     (testNamePattern === undefined ||
@@ -223,9 +264,9 @@ export const verifyOutput = (
     !expectQuarantinedTestsToBeQuarantined) &&
     mixedQuarantinedTestShouldRun) ||
     mixedFailTestShouldRun
-    ? expect(stderrLines).toContain
-    : expect(stderrLines).not.toContain)(
-    `${FAIL} ${formatTestFilename("src/", "mixed.test.ts")}`
+    ? expect(stderrLines).toContainEqual
+    : expect(stderrLines).not.toContainEqual)(
+    expect.stringMatching(specResultRegexMatch("fail", "src/", "mixed.test.ts"))
   );
   (mixedQuarantinedTestShouldRun
     ? expect(stderrLines).toContainEqual
