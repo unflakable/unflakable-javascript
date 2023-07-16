@@ -173,7 +173,7 @@ jobs:
           # DEBUG: unflakable:*
 
           # Enable debug logs within the Cypress plugin.
-          TEST_DEBUG: "unflakable:*,cypress:server:*"
+          TEST_DEBUG: "unflakable:*,cypress:server:*,cypress-verbose:server:browsers:cri-client:*"
 
           # Enable terminal colors for debug() output.
           DEBUG_COLORS: "1"
@@ -281,7 +281,7 @@ jobs:
           # DEBUG: unflakable:*
 
           # Enable debug logs within the Cypress plugin.
-          TEST_DEBUG: "unflakable:*,cypress:server:*"
+          TEST_DEBUG: "unflakable:*,cypress:server:*,cypress-verbose:server:browsers:cri-client:*"
 
           # Enable terminal colors for debug() output.
           DEBUG_COLORS: "1"
