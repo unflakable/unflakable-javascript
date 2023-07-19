@@ -7,6 +7,7 @@
     "lib": ["ES2019"],
     // Required by Rollup (consumed by Rollup in the *-plugin packages).
     "module": "esnext",
+    "sourceMap": true,
     // Avoids conflicting global definitions from, e.g., jasmine.
     "types": ["node"]
   },

@@ -36,6 +36,7 @@ export default [
       // Mimicks TypeScript `esModuleInterop` (see
       // https://rollupjs.org/configuration-options/#output-format).
       interop: "auto",
+      sourcemap: true,
     },
     // Bundle the internal @unflakable/plugins-common package in dist/, but leave most other
     // imported packages as an external. Internal modules begin with `.` or `/`.

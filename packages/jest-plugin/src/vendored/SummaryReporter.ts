@@ -39,7 +39,7 @@ import { BaseReporter, ReporterOnStartOptions } from "@jest/reporters";
 import { getSummary } from "./getSummary";
 import getSnapshotSummary from "./getSnapshotSummary";
 import { getResultHeader } from "./getResultHeader";
-import { UnflakableAggregatedResult } from "../types";
+import { UnflakableAggregatedResultWithCounts } from "../types";
 
 const TEST_SUMMARY_THRESHOLD = 20;
 
@@ -106,7 +106,7 @@ export default class SummaryReporter extends BaseReporter {
 
   onRunComplete(
     contexts: Set<unknown> | undefined,
-    aggregatedResults: UnflakableAggregatedResult
+    aggregatedResults: UnflakableAggregatedResultWithCounts
   ): void {
     const { numTotalTestSuites, testResults, wasInterrupted } =
       aggregatedResults;

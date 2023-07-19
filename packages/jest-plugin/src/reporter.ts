@@ -5,7 +5,6 @@ import type {
   AggregatedResult,
   AssertionResult,
   Status,
-  TestResult,
 } from "@jest/test-result";
 import {
   BaseReporter,
@@ -14,7 +13,7 @@ import {
   Test,
   VerboseReporter,
 } from "@jest/reporters";
-import { FAILED, groupBy, testKey, USER_AGENT } from "./utils";
+import { groupBy, testKey, USER_AGENT } from "./utils";
 import {
   TestAttemptResult,
   TestRunRecord,
@@ -23,8 +22,10 @@ import {
 } from "@unflakable/js-api";
 import {
   UnflakableAggregatedResult,
+  UnflakableAggregatedResultWithCounts,
   UnflakableAssertionResult,
   UnflakableTestResult,
+  UnflakableTestResultWithCounts,
 } from "./types";
 import { specialChars } from "jest-util";
 import type { Config } from "@jest/types";
@@ -46,6 +47,7 @@ import {
   UnflakableConfig,
   UnflakableConfigEnabled,
 } from "@unflakable/plugins-common";
+import { addResult, makeEmptyAggregatedTestResult } from "@jest/test-result";
 
 const debug = _debug("unflakable:reporter");
 
@@ -97,116 +99,153 @@ const getIcon = (test: UnflakableAssertionResult): string => {
   }
 };
 
-// Removes stats attributed to retries (which shouldn't affect the overall stats) and counts flaky
-// tests.
-const processedResults = (
-  aggregatedResults: AggregatedResult
-): UnflakableAggregatedResult => {
+// Recomputes the aggregated stats after taking into account retries, flakes, and quarantined
+// failures. This function returns new objects and does NOT modify its input.
+const computeResultsForReporter = (
+  origAggregatedResults: UnflakableAggregatedResult
+): UnflakableAggregatedResultWithCounts => {
   const resultsByFilenameAndName = Object.fromEntries(
     Object.entries(
       groupBy(
-        aggregatedResults.testResults,
+        origAggregatedResults.testResults,
         (testFileResult: UnflakableTestResult) => testFileResult.testFilePath
       )
     ).map(([testFilePath, testFileResults]) => [
       testFilePath,
       groupBy(
         testFileResults.flatMap((testFileResult) => testFileResult.testResults),
-        (assertionResult) => JSON.stringify(testKey(assertionResult))
+        (assertionResult) => JSON.stringify(testKey(assertionResult, false))
       ),
     ])
   );
 
-  return aggregatedResults.testResults.reduce(
-    (filteredResults, testResult: UnflakableTestResult) => {
-      if ((testResult._unflakableAttempt ?? 0) > 0) {
-        return {
-          ...filteredResults,
-          numFailedTestSuites:
-            testResult.numFailingTests > 0 ||
-            testResult.testExecError !== undefined
-              ? filteredResults.numFailedTestSuites - 1
-              : filteredResults.numFailedTestSuites,
-          numPassedTestSuites:
-            !testResult.skipped &&
-            !(
-              testResult.numFailingTests > 0 ||
-              testResult.testExecError !== undefined
-            )
-              ? filteredResults.numPassedTestSuites - 1
-              : filteredResults.numPassedTestSuites,
-          numPendingTestSuites: testResult.skipped
-            ? filteredResults.numPendingTestSuites - 1
-            : filteredResults.numPendingTestSuites,
-          snapshot: {
-            ...filteredResults.snapshot,
-            matched:
-              filteredResults.snapshot.matched - testResult.snapshot.matched,
-            total:
-              filteredResults.snapshot.total -
-              testResult.snapshot.added -
-              testResult.snapshot.matched -
-              testResult.snapshot.unmatched -
-              testResult.snapshot.updated,
-            // When we retry failed tests, Jest incorrectly counts named snapshots as obsolete.
-            unchecked:
-              filteredResults.snapshot.unchecked -
-              testResult.snapshot.unchecked,
-            uncheckedKeysByFile: filteredResults.snapshot.uncheckedKeysByFile
-              .map((uncheckedSnapshot) => {
-                uncheckedSnapshot.keys = uncheckedSnapshot.keys.filter((key) =>
-                  testResult.snapshot.uncheckedKeys.includes(key)
-                );
-                return uncheckedSnapshot;
-              })
-              .filter((uncheckedSnapshot) => uncheckedSnapshot.keys.length > 0),
-            unmatched:
-              filteredResults.snapshot.unmatched -
-              testResult.snapshot.unmatched,
-            filesUnmatched:
-              filteredResults.snapshot.filesUnmatched -
-              (testResult.snapshot.unmatched > 0 ? 1 : 0),
-          },
-        };
-      } else {
+  // Only includes the first attempt of each test file, but the stats take into account subsequent
+  // attempts to determine flakiness.
+  const updatedTestResults: UnflakableTestResultWithCounts[] =
+    origAggregatedResults.testResults
+      .filter((testResult) => (testResult._unflakableAttempt ?? 0) === 0)
+      .map((testResult): UnflakableTestResultWithCounts => {
         const attemptsByTestName =
           resultsByFilenameAndName[testResult.testFilePath];
-        const numFlakyTests = testResult.testResults.reduce(
-          (numFlakyTests, assertionResult) => {
+
+        const {
+          numFailingTests,
+          numFlakyTests,
+          numPassingTests,
+          numQuarantinedTests,
+        } = testResult.testResults.reduce(
+          (
+            {
+              numFailingTests,
+              numFlakyTests,
+              numPassingTests,
+              numQuarantinedTests,
+            },
+            assertionResult
+          ) => {
             const attempts =
-              attemptsByTestName[JSON.stringify(testKey(assertionResult))];
-            return attempts.some((attempt) => attempt.status === "passed") &&
+              attemptsByTestName[
+                JSON.stringify(testKey(assertionResult, false))
+              ];
+            const isPassing =
+              attempts.some((attempt) => attempt.status === "passed") &&
+              attempts.every(
+                (attempt) =>
+                  attempt.status === "passed" || attempt.status === "pending"
+              );
+            const isQuarantined =
+              !isPassing &&
               attempts.some(
-                (attempt: UnflakableAssertionResult) =>
+                (attempt) =>
+                  attempt.status === "failed" &&
+                  attempt._unflakableIsQuarantined === true
+              );
+            const isFlaky =
+              !isQuarantined &&
+              attempts.some((attempt) => attempt.status === "passed") &&
+              attempts.some(
+                (attempt) =>
                   attempt.status === "failed" &&
                   attempt._unflakableIsQuarantined !== true
-              )
-              ? numFlakyTests + 1
-              : numFlakyTests;
+              );
+            const isFailing =
+              !isQuarantined &&
+              attempts.some((attempt) => attempt.status === "failed") &&
+              attempts.every(
+                (attempt) =>
+                  attempt.status === "failed" || attempt.status === "pending"
+              );
+            return {
+              numFailingTests: numFailingTests + (isFailing ? 1 : 0),
+              numFlakyTests: numFlakyTests + (isFlaky ? 1 : 0),
+              numPassingTests: numPassingTests + (isPassing ? 1 : 0),
+              numQuarantinedTests:
+                numQuarantinedTests + (isQuarantined ? 1 : 0),
+            };
           },
-          0
+          {
+            numFailingTests: 0,
+            numFlakyTests: 0,
+            numPassingTests: 0,
+            numQuarantinedTests: 0,
+          }
         );
+
         return {
-          ...filteredResults,
-          testResults: [
-            ...filteredResults.testResults,
-            {
-              ...testResult,
-              numFailingTests: Math.max(
-                testResult.numFailingTests - numFlakyTests,
-                0
-              ),
-              _unflakableNumFlakyTests: numFlakyTests,
-            },
-          ],
+          ...testResult,
+          numFailingTests,
+          numPassingTests,
+          _unflakableNumFlakyTests: numFlakyTests,
+          _unflakableNumQuarantinedTests: numQuarantinedTests,
         };
+      });
+
+  const emptyAggregatedResults: UnflakableAggregatedResultWithCounts = {
+    ...makeEmptyAggregatedTestResult(),
+
+    // Jest sets these fields separately in its TestScheduler:
+    // https://github.com/jestjs/jest/blob/7cf50065ace0f0fffeb695a7980e404a17d3b761/packages/jest-core/src/TestScheduler.ts#L429
+    numTotalTestSuites: origAggregatedResults.numTotalTestSuites,
+    startTime: origAggregatedResults.startTime,
+    success: origAggregatedResults.success,
+
+    testResults: updatedTestResults,
+    _unflakableNumFlakyTests: 0,
+    _unflakableNumQuarantinedTests: 0,
+    _unflakableNumQuarantinedSuites: 0,
+  };
+
+  return updatedTestResults.reduce((aggregatedResults, testResult) => {
+    addResult(aggregatedResults, testResult);
+
+    aggregatedResults.numTotalTests +=
+      testResult._unflakableNumFlakyTests +
+      testResult._unflakableNumQuarantinedTests;
+
+    aggregatedResults._unflakableNumFlakyTests +=
+      testResult._unflakableNumFlakyTests;
+    aggregatedResults._unflakableNumQuarantinedTests +=
+      testResult._unflakableNumQuarantinedTests;
+
+    // Handle edge cases that onResult() considers a suite pass but that should be failed or
+    // quarantined:
+    // https://github.com/jestjs/jest/blob/6d2632adae0f0fa1fe116d3b475fd9783d0de1b5/packages/jest-test-result/src/helpers.ts#L110
+    if (
+      !testResult.skipped &&
+      testResult.testExecError === undefined &&
+      testResult.numFailingTests === 0
+    ) {
+      if (testResult._unflakableNumFlakyTests > 0) {
+        aggregatedResults.numFailedTestSuites += 1;
+        aggregatedResults.numPassedTestSuites -= 1;
+      } else if (testResult._unflakableNumQuarantinedTests > 0) {
+        aggregatedResults._unflakableNumQuarantinedSuites += 1;
+        aggregatedResults.numPassedTestSuites -= 1;
       }
-    },
-    {
-      ...aggregatedResults,
-      testResults: [] as UnflakableTestResult[],
     }
-  );
+
+    return aggregatedResults;
+  }, emptyAggregatedResults);
 };
 
 export default class UnflakableReporter extends BaseReporter {
@@ -221,6 +260,7 @@ export default class UnflakableReporter extends BaseReporter {
   private readonly summaryReporter: SummaryReporter;
 
   constructor(globalConfig: Config.GlobalConfig) {
+    debug("constructor");
     super();
     this.rootDir = globalConfig.rootDir;
     this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
@@ -246,13 +286,14 @@ export default class UnflakableReporter extends BaseReporter {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore: monkey patch to avoid full re-implementation of VerboseReporter.
       verboseReporter._logTest = (
-        test: UnflakableAssertionResult,
+        assertionResult: UnflakableAssertionResult,
         indentLevel: number
       ): void => {
-        const status = getIcon(test);
-        const duration = test.duration ?? 0;
+        const status = getIcon(assertionResult);
+        const duration = assertionResult.duration ?? 0;
         const time =
           duration > 0 ? ` (${formatTime(Math.round(duration))})` : "";
+
         // prettier-ignore
         (
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -265,8 +306,8 @@ export default class UnflakableReporter extends BaseReporter {
           status +
           " " +
           chalk.dim(
-            test.title +
-            (test._unflakableIsQuarantined === true
+            assertionResult.title +
+            (assertionResult._unflakableIsQuarantined === true
               ? chalk.yellow(" [quarantined]")
               : "") +
             time
@@ -282,7 +323,7 @@ export default class UnflakableReporter extends BaseReporter {
     this.defaultReporter.printTestFileHeader = (
       _testPath: unknown,
       config: Config.ProjectConfig,
-      result: UnflakableTestResult
+      result: UnflakableTestResultWithCounts
     ): void => {
       const resultHeader = getResultHeader(result, globalConfig, config);
 
@@ -346,50 +387,76 @@ export default class UnflakableReporter extends BaseReporter {
     this.defaultReporter.onTestStart(test);
   }
 
-  onTestCaseResult(test: Test, testCaseResult: AssertionResult): void {
-    debug("onTestCaseResult");
+  onTestCaseResult(
+    test: Test,
+    assertionResult: UnflakableAssertionResult
+  ): void {
+    debug(
+      `onTestCaseResult path=\`${test.path}\` title=%o status=%o`,
+      [...assertionResult.ancestorTitles, assertionResult.title],
+      assertionResult.status
+    );
+
     // Not defined in Jest < 26.2.
     if (this.defaultReporter.onTestCaseResult !== undefined) {
-      this.defaultReporter.onTestCaseResult(test, testCaseResult);
+      this.defaultReporter.onTestCaseResult(test, assertionResult);
     }
   }
 
+  // NB: This is called once per test *file* attempt, but the aggregatedResults include every test
+  // attempt so far, including those from other files.
   onTestResult(
     test: Test,
-    testResult: TestResult,
-    aggregatedResult: AggregatedResult
+    testResult: UnflakableTestResult,
+    aggregatedResults: UnflakableAggregatedResult
   ): void {
-    debug("onTestResult");
+    debug(`onTestResult path=\`${test.path}\``);
+
+    const testResultForReporter: UnflakableTestResultWithCounts = {
+      ...testResult,
+      // Undo the sanitization of quarantined tests that the runner performs in order to keep
+      // Jest from exiting with non-zero status if all the failed tests are quarantined. This needs
+      // to be non-zero if there are any quarantined tests so that
+      // DefaultReporter.printTestFileHeader() prints FAIL for this file (preceded by QUARANTINED
+      // if all of the failures are quarantined).
+      numFailingTests: testResult.testResults.filter(
+        (assertionResult) => assertionResult.status === "failed"
+      ).length,
+      // We don't know when tests are flaky until the end.
+      _unflakableNumFlakyTests: 0,
+      _unflakableNumQuarantinedTests: testResult.testResults.filter(
+        (attempt) =>
+          attempt.status === "failed" &&
+          attempt._unflakableIsQuarantined === true
+      ).length,
+      snapshot: {
+        ...testResult.snapshot,
+        // When we retry failed tests, Jest incorrectly counts named snapshots as obsolete. Filter
+        // out obsolete tests during retries.
+        unchecked:
+          (testResult._unflakableAttempt ?? 0) > 0
+            ? 0
+            : testResult.snapshot.unchecked,
+        uncheckedKeys:
+          (testResult._unflakableAttempt ?? 0) > 0
+            ? []
+            : testResult.snapshot.uncheckedKeys,
+      },
+    };
+
     this.defaultReporter.onTestResult(
       test,
-      {
-        ...testResult,
-        // Undo the sanitization of quarantined tests that the runner performs in order to keep
-        // Jest from exiting with non-zero status if all the failed tests are quarantined.
-        numFailingTests: testResult.testResults.filter(
-          (assertionResult) => assertionResult.status === FAILED
-        ).length,
-        snapshot: {
-          ...testResult.snapshot,
-          // When we retry failed tests, Jest incorrectly counts named snapshots as obsolete. Filter
-          // out obsolete tests during retries.
-          unchecked:
-            ((testResult as UnflakableTestResult)._unflakableAttempt ?? 0) > 0
-              ? 0
-              : testResult.snapshot.unchecked,
-          uncheckedKeys:
-            ((testResult as UnflakableTestResult)._unflakableAttempt ?? 0) > 0
-              ? []
-              : testResult.snapshot.uncheckedKeys,
-        },
-      },
-      processedResults(aggregatedResult)
+      testResultForReporter,
+      computeResultsForReporter(aggregatedResults)
     );
   }
 
+  // NB: This is called only once, after UnflakableRunner.runTests() returns (i.e., after all
+  // retries have been exhausted or all tests passed). The aggregatedResults include every test
+  // attempt.
   async onRunComplete(
     contexts: Set<unknown> | undefined,
-    aggregatedResults: AggregatedResult
+    aggregatedResults: UnflakableAggregatedResult
   ): Promise<void> {
     debug("onRunComplete");
     this.defaultReporter.onRunComplete();
@@ -397,7 +464,7 @@ export default class UnflakableReporter extends BaseReporter {
     // Don't double-count tests that were retried.
     this.summaryReporter.onRunComplete(
       contexts,
-      processedResults(aggregatedResults)
+      computeResultsForReporter(aggregatedResults)
     );
 
     if (this.unflakableConfig.enabled && this.unflakableConfig.uploadResults) {
@@ -413,10 +480,9 @@ export default class UnflakableReporter extends BaseReporter {
 
   private async uploadResults(
     aggregatedResults: AggregatedResult,
-    unflakableConfig: UnflakableConfig
+    unflakableConfig: UnflakableConfigEnabled
   ): Promise<void> {
-    const testSuiteId = (unflakableConfig as UnflakableConfigEnabled)
-      .testSuiteId;
+    const testSuiteId = unflakableConfig.testSuiteId;
 
     const git = unflakableConfig.gitAutoDetect ? await loadGitRepo() : null;
     const repoRoot = git !== null ? await getRepoRoot(git) : this.rootDir;
@@ -432,13 +498,13 @@ export default class UnflakableReporter extends BaseReporter {
           testFileResults.flatMap(
             (testFileResult) => testFileResult.testResults
           ),
-          (assertionResult) => JSON.stringify(testKey(assertionResult))
+          (assertionResult) => JSON.stringify(testKey(assertionResult, true))
         )
       )
         .map(
           ([, assertionResults]): TestRunRecord => ({
             filename: toPosix(path.relative(repoRoot, testFilePath)),
-            name: testKey(assertionResults[0]),
+            name: testKey(assertionResults[0], true),
             attempts: assertionResults
               .map((testResult: UnflakableAssertionResult) => ({
                 testResult,

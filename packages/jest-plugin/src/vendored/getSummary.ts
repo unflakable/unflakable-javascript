@@ -31,71 +31,13 @@ All modifications to the above referenced file are copyrighted and licensed unde
 forth in the LICENSE file at the root of this repository.
 */
 
-import type { SummaryOptions, Test } from "@jest/reporters";
-import {
-  UnflakableAggregatedResult,
-  UnflakableAssertionResult,
-  UnflakableTestResult,
-} from "../types";
+import type { SummaryOptions } from "@jest/reporters";
+import { UnflakableAggregatedResultWithCounts } from "../types";
 import * as JestUtil from "jest-util";
-import type { AssertionResult } from "@jest/test-result";
 import chalk from "chalk";
 import { formatTime } from "./formatTime";
 
 const PROGRESS_BAR_WIDTH = 40;
-
-const getValuesCurrentTestCases = (
-  currentTestCases: {
-    test: Test;
-    testCaseResult: UnflakableAssertionResult;
-  }[] = []
-): {
-  numFailingTests: number;
-  numPassingTests: number;
-  numPendingTests: number;
-  numQuarantinedTests: number;
-  numTodoTests: number;
-  numTotalTests: number;
-} => {
-  let numFailingTests = 0;
-  let numPassingTests = 0;
-  let numPendingTests = 0;
-  let numQuarantinedTests = 0;
-  let numTodoTests = 0;
-  let numTotalTests = 0;
-  currentTestCases.forEach((testCase) => {
-    if (testCase.testCaseResult._unflakableIsQuarantined === true) {
-      numQuarantinedTests++;
-    } else {
-      switch (testCase.testCaseResult.status) {
-        case "failed":
-          numFailingTests++;
-          break;
-        case "passed":
-          numPassingTests++;
-          break;
-        case "skipped":
-          numPendingTests++;
-          break;
-        case "todo":
-          numTodoTests++;
-          break;
-        default:
-          break;
-      }
-    }
-    numTotalTests++;
-  });
-
-  return {
-    numFailingTests,
-    numPassingTests,
-    numPendingTests,
-    numQuarantinedTests,
-    numTodoTests,
-    numTotalTests,
-  };
-};
 
 const renderTime = (
   runTime: number,
@@ -131,40 +73,13 @@ const renderTime = (
 };
 
 export const getSummary = (
-  aggregatedResults: UnflakableAggregatedResult,
+  aggregatedResults: UnflakableAggregatedResultWithCounts,
   options?: SummaryOptions
 ): string => {
   let runTime = (Date.now() - aggregatedResults.startTime) / 1000;
   if (options?.roundTime === true) {
     runTime = Math.floor(runTime);
   }
-
-  const valuesForCurrentTestCases = getValuesCurrentTestCases(
-    (
-      options as {
-        // Not defined in Jest < 26.2.
-        currentTestCases?:
-          | { test: Test; testCaseResult: AssertionResult }[]
-          | undefined;
-      }
-    )?.currentTestCases ?? []
-  );
-
-  let suitesQuarantined = 0,
-    testsFlaky = 0,
-    testsQuarantined = 0;
-  aggregatedResults.testResults.forEach((testResult: UnflakableTestResult) => {
-    testsFlaky += testResult._unflakableNumFlakyTests ?? 0;
-    testsQuarantined += testResult._unflakableNumQuarantinedTests ?? 0;
-    if (
-      !testResult.skipped &&
-      testResult.numFailingTests === 0 &&
-      testResult.testExecError === undefined &&
-      (testResult._unflakableNumQuarantinedTests ?? 0) > 0
-    ) {
-      suitesQuarantined += 1;
-    }
-  });
 
   const estimatedTime = options?.estimatedTime ?? 0;
   const snapshotResults = aggregatedResults.snapshot;
@@ -177,16 +92,18 @@ export const getSummary = (
   const snapshotsTotal = snapshotResults.total;
   const snapshotsUpdated = snapshotResults.updated;
   const suitesFailed = aggregatedResults.numFailedTestSuites;
-  const suitesPassed =
-    aggregatedResults.numPassedTestSuites - suitesQuarantined;
+  const suitesPassed = aggregatedResults.numPassedTestSuites;
   const suitesPending = aggregatedResults.numPendingTestSuites;
+  const suitesQuarantined = aggregatedResults._unflakableNumQuarantinedSuites;
   const suitesRun = suitesFailed + suitesPassed + suitesQuarantined;
   const suitesTotal = aggregatedResults.numTotalTestSuites;
   const testsFailed = aggregatedResults.numFailedTests;
+  const testsFlaky = aggregatedResults._unflakableNumFlakyTests;
   const testsPassed = aggregatedResults.numPassedTests;
   const testsPending = aggregatedResults.numPendingTests;
+  const testsQuarantined = aggregatedResults._unflakableNumQuarantinedTests;
   const testsTodo = aggregatedResults.numTodoTests;
-  const testsTotal = aggregatedResults.numTotalTests + testsQuarantined;
+  const testsTotal = aggregatedResults.numTotalTests;
   const width = options?.width ?? 0;
 
   const suites = `${chalk.bold("Test Suites: ")}${
@@ -205,41 +122,21 @@ export const getSummary = (
     suitesRun !== suitesTotal ? `${suitesRun} of ${suitesTotal}` : suitesTotal
   } total`;
 
-  const updatedTestsFailed = Math.max(
-    testsFailed + valuesForCurrentTestCases.numFailingTests - testsFlaky,
-    0
-  );
-  const updatedTestsQuarantined =
-    testsQuarantined + valuesForCurrentTestCases.numQuarantinedTests;
-  const updatedTestsPending =
-    testsPending + valuesForCurrentTestCases.numPendingTests;
-  const updatedTestsTodo = testsTodo + valuesForCurrentTestCases.numTodoTests;
-  const updatedTestsPassed =
-    testsPassed + valuesForCurrentTestCases.numPassingTests;
-  const updatedTestsTotal =
-    testsTotal + valuesForCurrentTestCases.numTotalTests;
-
   const tests =
     chalk.bold("Tests:       ") +
-    (updatedTestsFailed > 0
-      ? chalk.bold.red(`${updatedTestsFailed} failed`) + ", "
-      : "") +
+    (testsFailed > 0 ? chalk.bold.red(`${testsFailed} failed`) + ", " : "") +
     (testsFlaky > 0
       ? chalk.bold.magentaBright(`${testsFlaky} flaky`) + ", "
       : "") +
-    (updatedTestsQuarantined > 0
-      ? chalk.bold.yellow(`${updatedTestsQuarantined} quarantined`) + ", "
+    (testsQuarantined > 0
+      ? chalk.bold.yellow(`${testsQuarantined} quarantined`) + ", "
       : "") +
-    (updatedTestsPending > 0
-      ? chalk.bold.yellow(`${updatedTestsPending} skipped`) + ", "
+    (testsPending > 0
+      ? chalk.bold.yellow(`${testsPending} skipped`) + ", "
       : "") +
-    (updatedTestsTodo > 0
-      ? chalk.bold.magenta(`${updatedTestsTodo} todo`) + ", "
-      : "") +
-    (updatedTestsPassed > 0
-      ? chalk.bold.green(`${updatedTestsPassed} passed`) + ", "
-      : "") +
-    `${updatedTestsTotal} total`;
+    (testsTodo > 0 ? chalk.bold.magenta(`${testsTodo} todo`) + ", " : "") +
+    (testsPassed > 0 ? chalk.bold.green(`${testsPassed} passed`) + ", " : "") +
+    `${testsTotal} total`;
 
   const snapshots =
     chalk.bold("Snapshots:   ") +

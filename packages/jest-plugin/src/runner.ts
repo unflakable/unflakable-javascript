@@ -33,113 +33,39 @@ import {
   loadConfigSync,
   loadGitRepo,
   toPosix,
-  QuarantineMode,
   UnflakableConfig,
 } from "@unflakable/plugins-common";
 
 const debug = _debug("unflakable:runner");
 
+// Exported by newer Jest versions but not older ones prior to 26.2.0.
+export declare type TestEvents = {
+  "test-file-start": [Test];
+  "test-file-success": [Test, TestResult];
+  "test-file-failure": [Test, SerializableError];
+  "test-case-result": [string, AssertionResult];
+};
+
+export declare type UnsubscribeFn = () => void;
+
 type TestFailure = { test: Test; testResult: TestResult };
 
-const wrapOnResult =
-  ({
-    attempt,
-    manifest,
-    onResult,
-    quarantineMode,
-    repoRoot,
-    testFailures,
-  }: {
-    attempt: number;
-    manifest: TestSuiteManifest | undefined;
-    onResult: OnTestSuccess;
-    quarantineMode: QuarantineMode;
-    repoRoot: string;
-    testFailures: TestFailure[];
-  }) =>
-  async (test: Test, testResult: TestResult): Promise<void> => {
-    const testResults = testResult.testResults.map(
-      (assertionResult: AssertionResult): UnflakableAssertionResult => {
-        const testFilename = toPosix(path.relative(repoRoot, test.path));
-        if (assertionResult.status === FAILED) {
-          if (manifest === undefined) {
-            debug(
-              "Not quarantining test failure due to failure to fetch manifest"
-            );
-          } else if (quarantineMode === "no_quarantine") {
-            debug(
-              "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
-            );
-          } else {
-            const isQuarantined = isTestQuarantined(
-              manifest,
-              testFilename,
-              testKey(assertionResult)
-            );
-            debug(
-              `Test is ${
-                isQuarantined ? "" : "NOT "
-              }quarantined: ${JSON.stringify(
-                testKey(assertionResult)
-              )} in file ${testFilename}`
-            );
-            return {
-              ...assertionResult,
-              // Use a separate field instead of adding a new `status` to avoid confusing third-
-              // party code that consumes the `Status` enum.
-              _unflakableIsQuarantined: isQuarantined,
-            };
-          }
-        }
-        return assertionResult;
-      }
-    );
-
-    const numFailingTests = testResults.filter(
-      (assertionResult) =>
-        assertionResult.status === FAILED &&
-        assertionResult._unflakableIsQuarantined !== true
-    ).length;
-    const numQuarantinedTests = testResults.filter(
-      (assertionResult) => assertionResult._unflakableIsQuarantined === true
-    ).length;
-    const processedTestResult: UnflakableTestResult =
-      attempt === 0
-        ? {
-            ...testResult,
-            // NB: If this value is non-zero, the whole Jest run will terminate with a non-zero exit
-            // code.
-            numFailingTests,
-            _unflakableAttempt: attempt,
-            _unflakableNumQuarantinedTests: numQuarantinedTests,
-            testResults,
-          }
-        : // Don't double-count retried tests or SummaryReporter will produce confusing results.
-          {
-            ...testResult,
-            numFailingTests: 0,
-            numPassingTests: 0,
-            numPendingTests: 0,
-            numTodoTests: 0,
-            _unflakableAttempt: attempt,
-            _unflakableNumQuarantinedTests: numQuarantinedTests,
-            testResults,
-          };
-
-    if (numFailingTests > 0 || numQuarantinedTests > 0) {
-      testFailures.push({ test, testResult });
-    }
-
-    await onResult(test, processedTestResult);
-  };
-
 class UnflakableRunner {
+  readonly supportsEventEmitters = true;
+
   private readonly context?: TestRunnerContext;
   private readonly globalConfig: Config.GlobalConfig;
   private readonly manifest: Promise<TestSuiteManifest | undefined>;
   private readonly unflakableConfig: UnflakableConfig;
 
+  private testEventHandlers: {
+    [key in keyof TestEvents]?: ((
+      eventData: TestEvents[key]
+    ) => void | Promise<void>)[];
+  } = {};
+
   constructor(globalConfig: Config.GlobalConfig, context?: TestRunnerContext) {
+    debug("constructor");
     this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
 
     const testSuiteId = this.unflakableConfig.enabled
@@ -164,6 +90,128 @@ class UnflakableRunner {
     this.globalConfig = globalConfig;
   }
 
+  // We expose an on() method that TestScheduler can call to register its event callbacks:
+  // https://github.com/jestjs/jest/blob/7cf50065ace0f0fffeb695a7980e404a17d3b761/packages/jest-core/src/TestScheduler.ts#L264.
+  // We also return an unsubscribe function from each call, although unsubscribing doesn't seem to
+  // serve much of a purpose since the test runner goes out of scope immediately after Jest calls
+  // the unsubscribe functions. We just do the same thing Jest does and unregister our own handlers
+  // before the inner TestRunner goes out of scope, and then clear the TestScheduler's registered
+  // callbacks from UnflakableTestRunner when TestScheduler calls its unsubscribe functions. This
+  // may be needed to break circular references and ensure that everything gets GCed.
+  on<Name extends keyof TestEvents>(
+    eventName: Name,
+    listener: (eventData: TestEvents[Name]) => void | Promise<void>
+  ): UnsubscribeFn {
+    debug(`subscribing to \`${eventName}\` listener`);
+    if (this.testEventHandlers[eventName] === undefined) {
+      this.testEventHandlers[eventName] = [];
+    }
+
+    type EventListener = (eventData: TestEvents[Name]) => void | Promise<void>;
+
+    (this.testEventHandlers[eventName] as EventListener[]).push(listener);
+
+    return () => {
+      debug(`unsubscribing from \`${eventName}\` listener`);
+      const idx = (
+        this.testEventHandlers[eventName] as EventListener[]
+      ).indexOf(listener);
+      if (idx !== -1) {
+        (this.testEventHandlers[eventName] as EventListener[]).splice(idx, 1);
+      }
+    };
+  }
+
+  // Called after each test *file* runs successfully (which may include failed tests, but the test
+  // file itself didn't throw any errors when it was loaded). This function modifies
+  // `testResult.testResults` by adding our own fields, and returns an updated
+  // `UnflakableTestResult` that also includes some of our own fields. In the case of retries, we
+  // also clear stats that would otherwise result in double-counted tests being emitted by the
+  // SummaryReporter.
+  private onResult(
+    attempt: number,
+    manifest: TestSuiteManifest | undefined,
+    repoRoot: string,
+    testsToRetry: TestFailure[],
+    test: Test,
+    testResult: TestResult
+  ): void {
+    debug(`onResult attempt=${attempt} path=\`${test.path}\``);
+
+    testResult.testResults.forEach(
+      (assertionResult: UnflakableAssertionResult): void => {
+        const testFilename = toPosix(path.relative(repoRoot, test.path));
+        if (assertionResult.status === FAILED) {
+          if (manifest === undefined) {
+            debug(
+              "Not quarantining test failure due to failure to fetch manifest"
+            );
+          } else if (this.unflakableConfig.quarantineMode === "no_quarantine") {
+            debug(
+              "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
+            );
+          } else {
+            const isQuarantined = isTestQuarantined(
+              manifest,
+              testFilename,
+              testKey(assertionResult, true)
+            );
+            debug(
+              `Test is ${
+                isQuarantined ? "" : "NOT "
+              }quarantined: ${JSON.stringify(
+                testKey(assertionResult, false)
+              )} in file ${testFilename}`
+            );
+
+            // Use a separate field instead of adding a new `status` to avoid confusing third-
+            // party code that consumes the `Status` enum.
+            assertionResult._unflakableIsQuarantined = isQuarantined;
+          }
+        }
+      }
+    );
+
+    const numFailingTests = testResult.testResults.filter(
+      (assertionResult: UnflakableAssertionResult) =>
+        assertionResult.status === FAILED &&
+        assertionResult._unflakableIsQuarantined !== true
+    ).length;
+
+    // We retry any type of failure, including quarantined failures.
+    if (
+      testResult.testResults.some(
+        (assertionResult) => assertionResult.status === FAILED
+      )
+    ) {
+      testsToRetry.push({ test, testResult });
+    }
+
+    (testResult as UnflakableTestResult)._unflakableAttempt = attempt;
+    if (attempt === 0) {
+      // NB: If this value is non-zero, the whole Jest run will terminate with a non-zero exit
+      // code.
+      testResult.numFailingTests = numFailingTests;
+    } else {
+      // Don't double-count retried tests or SummaryReporter will produce confusing results.
+      testResult.numFailingTests = 0;
+      testResult.numPassingTests = 0;
+      testResult.numPendingTests = 0;
+      testResult.numTodoTests = 0;
+    }
+  }
+
+  // FIXME: test what happens when running Jest with multiple --projects arguments. Jest seems to
+  // create a separate "context" per project and associate that context with each test in the
+  // project.
+
+  // EmittingTestRunnerInterface in Jest 28+.
+  async runTests(
+    tests: Array<Test>,
+    watcher: TestWatcher,
+    options: TestRunnerOptions
+  ): Promise<void>;
+  // CallbackTestRunnerInterface in Jest 28+, and any version < Jest 28.
   async runTests(
     tests: Array<Test>,
     watcher: TestWatcher,
@@ -171,7 +219,16 @@ class UnflakableRunner {
     onResult: OnTestSuccess,
     onFailure: OnTestFailure,
     options: TestRunnerOptions
+  ): Promise<void>;
+  async runTests(
+    tests: Array<Test>,
+    watcher: TestWatcher,
+    onStartOrOptions: OnTestStart | TestRunnerOptions,
+    onResult?: OnTestSuccess,
+    onFailure?: OnTestFailure,
+    options?: TestRunnerOptions
   ): Promise<void> {
+    debug("runTests");
     const repoRoot =
       this.unflakableConfig.enabled && this.unflakableConfig.gitAutoDetect
         ? await (async (): Promise<string> => {
@@ -182,42 +239,37 @@ class UnflakableRunner {
           })()
         : this.globalConfig.rootDir;
 
-    let testFailures = await this.runTestsImpl(
+    let testsToRetry = await this.runTestsImpl(
       tests,
       watcher,
-      onStart,
+      onResult !== undefined ? (onStartOrOptions as OnTestStart) : undefined,
       onResult,
       onFailure,
-      options,
+      onResult !== undefined
+        ? (options as TestRunnerOptions)
+        : (onStartOrOptions as TestRunnerOptions),
       repoRoot,
       this.globalConfig,
-      this.context,
-      this.unflakableConfig,
-      await this.manifest,
       0 // attempt
     );
 
-    if (!this.unflakableConfig.enabled || testFailures.length === 0) {
-      return;
-    }
-
     const attempts =
-      this.unflakableConfig.failureRetries > 0
+      this.unflakableConfig.enabled && this.unflakableConfig.failureRetries > 0
         ? this.unflakableConfig.failureRetries + 1
         : 1;
     // NB: jest-circus also supports failure retries, but it's configured via the `jest` object
     // in each test file's environment, not via the global config that we have control over.
     for (
       let attempt = 1;
-      testFailures.length !== 0 && attempt < attempts;
+      testsToRetry.length !== 0 && attempt < attempts;
       attempt++
     ) {
       process.stderr.write(
         chalk.stderr.yellow.bold(
-          `Retrying ${testFailures.reduce(
+          `Retrying ${testsToRetry.reduce(
             (count, { testResult }) => count + testResult.numFailingTests,
             0
-          )} failed test(s) from ${testFailures.length} file(s) -- ${
+          )} failed test(s) from ${testsToRetry.length} file(s) -- ${
             attempts - attempt - 1
           } ${attempts - attempt - 1 === 1 ? "retry" : "retries"} remaining`
         ) + "\n"
@@ -226,14 +278,13 @@ class UnflakableRunner {
       // Similar to how we skip quarantined tests when quarantineMode is "skip_tests", we need to
       // re-run each failed file separately so that we can pass a custom testNamePattern regex to
       // each. This ensures that we only rerun the failed tests in each file.
-      testFailures = await testFailures.reduce(
+      testsToRetry = await testsToRetry.reduce(
         (promise, { test, testResult }) =>
-          promise.then(async (newTestFailures) => {
+          promise.then(async (newTestsToRetry) => {
             const failedTestPattern = testResult.testResults
               .filter(
                 (assertionResult: UnflakableAssertionResult) =>
-                  assertionResult.status === FAILED &&
-                  assertionResult._unflakableIsQuarantined !== true
+                  assertionResult.status === FAILED
               )
               .map((failedTest) => {
                 const testId = testKey(failedTest, false);
@@ -252,20 +303,21 @@ class UnflakableRunner {
               ...this.globalConfig,
               testNamePattern,
             });
-            return newTestFailures.concat(
+            return newTestsToRetry.concat(
               await this.runTestsImpl(
                 [test],
                 watcher,
-                onStart,
+                onResult !== undefined
+                  ? (onStartOrOptions as OnTestStart)
+                  : undefined,
                 // We re-wrap it in the next iteration.
                 onResult,
                 onFailure,
-                options,
+                onResult !== undefined
+                  ? (options as TestRunnerOptions)
+                  : (onStartOrOptions as TestRunnerOptions),
                 repoRoot,
                 filteredGlobalConfig,
-                this.context,
-                this.unflakableConfig,
-                await this.manifest,
                 attempt
               )
             );
@@ -275,70 +327,143 @@ class UnflakableRunner {
     }
   }
 
+  // Returns an array of tests that should be retried, which includes quarantined failures.
   private async runTestsImpl(
     tests: Test[],
     watcher: TestWatcher,
-    onStart: OnTestStart,
-    onResult: OnTestSuccess,
-    onFailure: OnTestFailure,
+    onStart: OnTestStart | undefined,
+    onResult: OnTestSuccess | undefined,
+    onFailure: OnTestFailure | undefined,
     options: TestRunnerOptions,
     repoRoot: string,
     globalConfig: Config.GlobalConfig,
-    context: TestRunnerContext | undefined,
-    unflakableConfig: UnflakableConfig,
-    manifest: TestSuiteManifest | undefined,
     attempt: number
   ): Promise<TestFailure[]> {
-    const testFailures: TestFailure[] = [];
+    debug("runTestsImpl");
+    const testsToRetry: TestFailure[] = [];
+    const manifest = await this.manifest;
 
-    const onResultImpl = this.unflakableConfig.enabled
-      ? wrapOnResult({
-          attempt,
-          manifest,
-          onResult,
-          quarantineMode: unflakableConfig.quarantineMode,
-          repoRoot,
-          testFailures,
-        })
-      : onResult;
-
-    const runTests = (
+    const runTests = async (
       globalConfig: Config.GlobalConfig,
       tests: Array<Test>,
       watcher: TestWatcher,
       options: TestRunnerOptions
     ): Promise<void> => {
-      const testRunner = new TestRunner(globalConfig, context ?? {});
+      const testRunner = new TestRunner(globalConfig, this.context ?? {});
 
-      // We have to give up on per-event type safety here to maintain compatibility with versions
-      // prior to 26.2.0.
-      type EventListener = (eventData: unknown) => void | Promise<void>;
-      type EventSubscriber = (
-        eventName: string,
-        listener: EventListener
-      ) => () => void;
+      const onResultImpl =
+        onResult !== undefined && this.unflakableConfig.enabled
+          ? async (test: Test, result: TestResult): Promise<void> => {
+              // NB: We call this first because it modifies `result`.
+              this.onResult(
+                attempt,
+                manifest,
+                repoRoot,
+                testsToRetry,
+                test,
+                result
+              );
+              await onResult(test, result);
+            }
+          : onResult;
 
       // The event emitter interface was introduced in Jest 26.2.0 (see
       // https://github.com/facebook/jest/pull/10227).
       if ((testRunner as unknown as { on?: unknown }).on !== undefined) {
         const eventEmittingTestRunner = testRunner as unknown as {
-          on: EventSubscriber;
+          on: <Name extends keyof TestEvents>(
+            eventName: Name,
+            listener: (eventData: TestEvents[Name]) => void | Promise<void>
+          ) => UnsubscribeFn;
         };
-        eventEmittingTestRunner.on("test-file-start", (([test]: [Test]) =>
-          onStart(test)) as EventListener);
-        eventEmittingTestRunner.on("test-file-success", (([test, result]: [
-          Test,
-          TestResult
-        ]) => onResultImpl(test, result)) as EventListener);
-        eventEmittingTestRunner.on("test-file-failure", (([test, error]: [
-          Test,
-          SerializableError
-        ]) => onFailure(test, error)) as EventListener);
 
-        return testRunner.runTests.length === 6
-          ? // Jest prior to 28.0.0 expects the callback arguments (see
-            // https://github.com/facebook/jest/pull/12641).
+        // EmittingTestRunnerInterface in Jest 28+.
+        const supportsEventEmitters = (
+          testRunner as {
+            supportsEventEmitters?: boolean;
+          }
+        ).supportsEventEmitters;
+
+        const unsubscribes = [
+          ...(onStart !== undefined
+            ? [
+                eventEmittingTestRunner.on(
+                  "test-file-start",
+                  ([test]: [Test]) => onStart(test)
+                ),
+              ]
+            : []),
+          ...(onResultImpl !== undefined
+            ? [
+                eventEmittingTestRunner.on(
+                  "test-file-success",
+                  ([test, result]: [Test, TestResult]) =>
+                    onResultImpl(test, result)
+                ),
+              ]
+            : []),
+          ...(onFailure !== undefined
+            ? [
+                eventEmittingTestRunner.on(
+                  "test-file-failure",
+                  ([test, error]: [Test, SerializableError]) =>
+                    onFailure(test, error)
+                ),
+              ]
+            : []),
+          ...Object.entries(this.testEventHandlers).flatMap(
+            ([eventName, listeners]) =>
+              listeners.map((listener) => {
+                if (
+                  eventName === "test-file-success" &&
+                  this.unflakableConfig.enabled
+                ) {
+                  return eventEmittingTestRunner.on(
+                    "test-file-success",
+                    ([
+                      test,
+                      result,
+                    ]: TestEvents["test-file-success"]): void | Promise<void> => {
+                      // NB: We call this first because it modifies `result`.
+                      this.onResult(
+                        attempt,
+                        manifest,
+                        repoRoot,
+                        testsToRetry,
+                        test,
+                        result
+                      );
+                      // NB: This triggers Jest's ReporterDispatcher to call onTestResult() for each
+                      // reporter.
+                      return (
+                        listener as (
+                          eventData: TestEvents["test-file-success"]
+                        ) => void | Promise<void>
+                      )([test, result]);
+                    }
+                  );
+                } else {
+                  return eventEmittingTestRunner.on(
+                    eventName as keyof TestEvents,
+                    listener as (
+                      eventData: TestEvents[keyof TestEvents]
+                    ) => void | Promise<void>
+                  );
+                }
+              })
+          ),
+        ];
+
+        await (supportsEventEmitters === true
+          ? // EmittingTestRunnerInterface in Jest 28+.
             (
+              testRunner.runTests as unknown as (
+                tests: Array<Test>,
+                watcher: TestWatcher,
+                options: TestRunnerOptions
+              ) => Promise<void>
+            )(tests, watcher, options)
+          : (
               testRunner.runTests as unknown as (
                 tests: Array<Test>,
                 watcher: TestWatcher,
@@ -356,15 +481,9 @@ class UnflakableRunner {
               undefined,
               undefined,
               options
-            )
-          : // Jest >= 28.0.0 no longer expects the callback arguments.
-            (
-              testRunner.runTests as unknown as (
-                tests: Array<Test>,
-                watcher: TestWatcher,
-                options: TestRunnerOptions
-              ) => Promise<void>
-            )(tests, watcher, options);
+            ));
+
+        unsubscribes.forEach((unsubscribe) => unsubscribe());
       } else {
         // Prior to Jest 26.2.0, use the legacy callback interface.
         return (
@@ -394,7 +513,8 @@ class UnflakableRunner {
     if (
       manifest !== undefined &&
       manifest.quarantined_tests.length > 0 &&
-      unflakableConfig.quarantineMode === "skip_tests"
+      this.unflakableConfig.enabled &&
+      this.unflakableConfig.quarantineMode === "skip_tests"
     ) {
       debug(
         `Skipping ${manifest.quarantined_tests.length} quarantined test(s)`
@@ -480,7 +600,7 @@ class UnflakableRunner {
     } else {
       await runTests(globalConfig, tests, watcher, options);
     }
-    return testFailures;
+    return testsToRetry;
   }
 }
 

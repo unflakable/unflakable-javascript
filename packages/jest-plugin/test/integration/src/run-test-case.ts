@@ -511,6 +511,8 @@ export const runTestCase = async (
     require.resolve("unflakable-test-common/dist/mock-cosmiconfig"),
     "--require",
     require.resolve("unflakable-test-common/dist/mock-git"),
+    // Uncomment to enable debugger.
+    // "--inspect",
     jestBin,
     // --no-cache disables the cache that stores the past timings, which makes the output
     // non-deterministic since it gets bolded if it exceeds the expected time.

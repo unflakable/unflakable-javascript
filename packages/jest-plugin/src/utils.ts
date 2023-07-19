@@ -14,7 +14,7 @@ export const PASSED: Status = "passed";
 
 export const testKey = (
   assertionResult: AssertionResult,
-  normalize = true
+  normalize: boolean
 ): string[] => {
   const fullKey = [...assertionResult.ancestorTitles, assertionResult.title];
   return normalize ? normalizeTestName(fullKey) : fullKey;
