@@ -6,6 +6,7 @@ export {
   QuarantineMode,
   UnflakableConfig,
   UnflakableConfigEnabled,
+  UnflakableConfigFile,
   loadApiKey,
   loadConfig,
   loadConfigSync,

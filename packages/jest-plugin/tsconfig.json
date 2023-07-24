@@ -7,8 +7,8 @@
     "module": "esnext",
     // Ensure Rollup build fails if there are type errors.
     "noEmitOnError": true,
-    // Removes DOM types.
-    "lib": ["ES2019"],
+    // Remove DOM types and support 2-argument Error constructor that takes a cause.
+    "lib": ["ES2022"],
     // Avoids conflicting global definitions from, e.g., jasmine.
     "types": ["node", "jest"],
     // Some versions of Jest (e.g., 28.0.0) have internally broken types.
@@ -16,10 +16,12 @@
   },
   "include": [
     ".eslintrc.js",
+    "jest.config.js",
+    "jest-circus.d.ts",
+    "rollup.config.mjs",
     "src",
     "test/.eslintrc.js",
     "test/babel.config.js",
-    "rollup.config.mjs",
     "window.d.ts"
   ]
 }

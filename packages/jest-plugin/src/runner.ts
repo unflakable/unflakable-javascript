@@ -1,11 +1,7 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 import * as path from "path";
-import type {
-  AssertionResult,
-  SerializableError,
-  TestResult,
-} from "@jest/test-result";
+import type { SerializableError, TestResult } from "@jest/test-result";
 import { FAILED, groupBy, testKey, USER_AGENT } from "./utils";
 import TestRunner, {
   OnTestFailure,
@@ -20,7 +16,11 @@ import {
   TEST_NAME_ENTRY_MAX_LENGTH,
   TestSuiteManifest,
 } from "@unflakable/js-api";
-import { UnflakableAssertionResult, UnflakableTestResult } from "./types";
+import {
+  UnflakableAssertionResult,
+  UnflakableJestConfig,
+  UnflakableTestResult,
+} from "./types";
 import type { Config } from "@jest/types";
 import chalk from "chalk";
 import escapeStringRegexp from "escape-string-regexp";
@@ -30,25 +30,16 @@ import {
   getTestSuiteManifest,
   isTestQuarantined,
   loadApiKey,
-  loadConfigSync,
   loadGitRepo,
   toPosix,
-  UnflakableConfig,
 } from "@unflakable/plugins-common";
+import { TestEvents, UnsubscribeFn } from "jest-circus/runner";
+import { loadConfig } from "./config";
+import util from "util";
 
 const debug = _debug("unflakable:runner");
 
-// Exported by newer Jest versions but not older ones prior to 26.2.0.
-export declare type TestEvents = {
-  "test-file-start": [Test];
-  "test-file-success": [Test, TestResult];
-  "test-file-failure": [Test, SerializableError];
-  "test-case-result": [string, AssertionResult];
-};
-
-export declare type UnsubscribeFn = () => void;
-
-type TestFailure = { test: Test; testResult: TestResult };
+type TestFailure = { test: Test; testResult: UnflakableTestResult };
 
 class UnflakableRunner {
   readonly supportsEventEmitters = true;
@@ -56,7 +47,14 @@ class UnflakableRunner {
   private readonly context?: TestRunnerContext;
   private readonly globalConfig: Config.GlobalConfig;
   private readonly manifest: Promise<TestSuiteManifest | undefined>;
-  private readonly unflakableConfig: UnflakableConfig;
+  private readonly unflakableConfig: UnflakableJestConfig;
+
+  private readonly capturedOutput: {
+    [key in string]: {
+      stderr: string;
+      stdout: string;
+    };
+  } = {};
 
   private testEventHandlers: {
     [key in keyof TestEvents]?: ((
@@ -66,7 +64,7 @@ class UnflakableRunner {
 
   constructor(globalConfig: Config.GlobalConfig, context?: TestRunnerContext) {
     debug("constructor");
-    this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
+    this.unflakableConfig = loadConfig(globalConfig.rootDir);
 
     const testSuiteId = this.unflakableConfig.enabled
       ? this.unflakableConfig.testSuiteId
@@ -122,63 +120,128 @@ class UnflakableRunner {
     };
   }
 
+  private async isFailureTestIndependent(
+    testFilePath: string,
+    assertionResult: UnflakableAssertionResult
+  ): Promise<boolean> {
+    if (typeof this.unflakableConfig.isFailureTestIndependent === "function") {
+      return this.unflakableConfig.isFailureTestIndependent({
+        failure: assertionResult.failureMessages.join("\n"),
+        stdout: assertionResult._unflakableCapturedStdout ?? "",
+        stderr: assertionResult._unflakableCapturedStderr ?? "",
+        testFilePath,
+        testName: [...assertionResult.ancestorTitles, assertionResult.title],
+      });
+    } else if (Array.isArray(this.unflakableConfig.isFailureTestIndependent)) {
+      return this.unflakableConfig.isFailureTestIndependent.some(
+        (regex) =>
+          regex.test(assertionResult.failureMessages.join("\n")) ||
+          regex.test(assertionResult._unflakableCapturedStdout ?? "") ||
+          regex.test(assertionResult._unflakableCapturedStderr ?? "")
+      );
+    }
+    return false;
+  }
+
   // Called after each test *file* runs successfully (which may include failed tests, but the test
   // file itself didn't throw any errors when it was loaded). This function modifies
   // `testResult.testResults` by adding our own fields, and returns an updated
   // `UnflakableTestResult` that also includes some of our own fields. In the case of retries, we
   // also clear stats that would otherwise result in double-counted tests being emitted by the
   // SummaryReporter.
-  private onResult(
+  private async onResult(
     attempt: number,
     manifest: TestSuiteManifest | undefined,
     repoRoot: string,
     testsToRetry: TestFailure[],
     test: Test,
     testResult: TestResult
-  ): void {
+  ): Promise<void> {
     debug(`onResult attempt=${attempt} path=\`${test.path}\``);
 
-    testResult.testResults.forEach(
-      (assertionResult: UnflakableAssertionResult): void => {
-        const testFilename = toPosix(path.relative(repoRoot, test.path));
-        if (assertionResult.status === FAILED) {
-          if (manifest === undefined) {
-            debug(
-              "Not quarantining test failure due to failure to fetch manifest"
-            );
-          } else if (this.unflakableConfig.quarantineMode === "no_quarantine") {
-            debug(
-              "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
-            );
-          } else {
-            const isQuarantined = isTestQuarantined(
-              manifest,
-              testFilename,
-              testKey(assertionResult, true)
-            );
-            debug(
-              `Test is ${
-                isQuarantined ? "" : "NOT "
-              }quarantined: ${JSON.stringify(
-                testKey(assertionResult, false)
-              )} in file ${testFilename}`
-            );
+    await Promise.all(
+      testResult.testResults.map(
+        async (assertionResult: UnflakableAssertionResult): Promise<void> => {
+          const testFilename = toPosix(path.relative(repoRoot, test.path));
 
-            // Use a separate field instead of adding a new `status` to avoid confusing third-
-            // party code that consumes the `Status` enum.
-            assertionResult._unflakableIsQuarantined = isQuarantined;
+          const key = JSON.stringify(testKey(assertionResult, false));
+          if (this.capturedOutput[key] !== undefined) {
+            assertionResult._unflakableCapturedStderr =
+              this.capturedOutput[key].stderr;
+            assertionResult._unflakableCapturedStdout =
+              this.capturedOutput[key].stdout;
+          }
+
+          delete this.capturedOutput[key];
+
+          if (assertionResult.status === FAILED) {
+            try {
+              assertionResult._unflakableIsFailureTestIndependent =
+                await this.isFailureTestIndependent(
+                  testResult.testFilePath,
+                  assertionResult
+                );
+              debug(
+                `Failure is${
+                  assertionResult._unflakableIsFailureTestIndependent === true
+                    ? ""
+                    : " not"
+                } test independent`
+              );
+            } catch (e) {
+              process.stderr.write(
+                chalk.red(
+                  `ERROR: Failed to evaluate isFailureTestIndependent: ${util.inspect(
+                    e
+                  )}\n`
+                )
+              );
+            }
+
+            if (manifest === undefined) {
+              debug(
+                "Not quarantining test failure due to failure to fetch manifest"
+              );
+            } else if (
+              this.unflakableConfig.quarantineMode === "no_quarantine"
+            ) {
+              debug(
+                "Not quarantining test failure because quarantineMode is set to `no_quarantine`"
+              );
+            } else {
+              const isQuarantined = isTestQuarantined(
+                manifest,
+                testFilename,
+                testKey(assertionResult, true)
+              );
+              debug(
+                `Test is ${
+                  isQuarantined ? "" : "NOT "
+                }quarantined: ${JSON.stringify(
+                  testKey(assertionResult, false)
+                )} in file ${testFilename}`
+              );
+
+              // Use a separate field instead of adding a new `status` to avoid confusing third-
+              // party code that consumes the `Status` enum.
+              assertionResult._unflakableIsQuarantined = isQuarantined;
+            }
           }
         }
-      }
+      )
     );
 
+    // We don't treat test-independent failures as failing tests at this point because that would
+    // cause Jest to terminate with a non-zero exit code, and we don't know yet if any subsequent
+    // attempts will pass.
     const numFailingTests = testResult.testResults.filter(
       (assertionResult: UnflakableAssertionResult) =>
         assertionResult.status === FAILED &&
-        assertionResult._unflakableIsQuarantined !== true
+        assertionResult._unflakableIsQuarantined !== true &&
+        assertionResult._unflakableIsFailureTestIndependent !== true
     ).length;
 
-    // We retry any type of failure, including quarantined failures.
+    // We retry any type of failure, including quarantined and test-independent failures.
     if (
       testResult.testResults.some(
         (assertionResult) => assertionResult.status === FAILED
@@ -264,14 +327,25 @@ class UnflakableRunner {
       testsToRetry.length !== 0 && attempt < attempts;
       attempt++
     ) {
+      const numTestsToRetry = testsToRetry.reduce(
+        (count, { testResult }) =>
+          count +
+          testResult.testResults.filter(
+            // NB: We retry all failed tests, but quarantined and test-independent failures
+            // aren't counted in numFailingTests.
+            (assertion) => assertion.status === "failed"
+          ).length,
+        0
+      );
       process.stderr.write(
         chalk.stderr.yellow.bold(
-          `Retrying ${testsToRetry.reduce(
-            (count, { testResult }) => count + testResult.numFailingTests,
-            0
-          )} failed test(s) from ${testsToRetry.length} file(s) -- ${
-            attempts - attempt - 1
-          } ${attempts - attempt - 1 === 1 ? "retry" : "retries"} remaining`
+          `Retrying ${numTestsToRetry} failed test${
+            numTestsToRetry === 1 ? "" : "s"
+          } from ${testsToRetry.length} file${
+            testsToRetry.length === 1 ? "" : "s"
+          } -- ${attempts - attempt - 1} ${
+            attempts - attempt - 1 === 1 ? "retry" : "retries"
+          } remaining`
         ) + "\n"
       );
 
@@ -327,7 +401,8 @@ class UnflakableRunner {
     }
   }
 
-  // Returns an array of tests that should be retried, which includes quarantined failures.
+  // Returns an array of tests that should be retried, which includes both quarantined and
+  // test-independent failures.
   private async runTestsImpl(
     tests: Test[],
     watcher: TestWatcher,
@@ -355,7 +430,7 @@ class UnflakableRunner {
         onResult !== undefined && this.unflakableConfig.enabled
           ? async (test: Test, result: TestResult): Promise<void> => {
               // NB: We call this first because it modifies `result`.
-              this.onResult(
+              await this.onResult(
                 attempt,
                 manifest,
                 repoRoot,
@@ -411,6 +486,33 @@ class UnflakableRunner {
                 ),
               ]
             : []),
+          ...(supportsEventEmitters === true
+            ? [
+                eventEmittingTestRunner.on(
+                  "test-case-result",
+                  ([testPath, assertionResult]: [
+                    string,
+                    UnflakableAssertionResult
+                  ]): void => {
+                    debug(
+                      `on(test-case-result) path=\`${testPath}\` title=%o status=%o`,
+                      [
+                        ...assertionResult.ancestorTitles,
+                        assertionResult.title,
+                      ],
+                      assertionResult.status
+                    );
+
+                    this.capturedOutput[
+                      JSON.stringify(testKey(assertionResult, false))
+                    ] = {
+                      stdout: assertionResult._unflakableCapturedStdout ?? "",
+                      stderr: assertionResult._unflakableCapturedStderr ?? "",
+                    };
+                  }
+                ),
+              ]
+            : []),
           ...Object.entries(this.testEventHandlers).flatMap(
             ([eventName, listeners]) =>
               listeners.map((listener) => {
@@ -420,12 +522,12 @@ class UnflakableRunner {
                 ) {
                   return eventEmittingTestRunner.on(
                     "test-file-success",
-                    ([
+                    async ([
                       test,
                       result,
-                    ]: TestEvents["test-file-success"]): void | Promise<void> => {
+                    ]: TestEvents["test-file-success"]): Promise<void> => {
                       // NB: We call this first because it modifies `result`.
-                      this.onResult(
+                      await this.onResult(
                         attempt,
                         manifest,
                         repoRoot,

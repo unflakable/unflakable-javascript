@@ -5,8 +5,33 @@ import type {
   AssertionResult,
   TestResult,
 } from "@jest/test-result";
+import {
+  UnflakableConfig,
+  UnflakableConfigEnabled,
+} from "@unflakable/plugins-common";
+
+export type IsFailureTestIndependentFn = (args: {
+  failure: string;
+  stderr: string;
+  stdout: string;
+  testFilePath: string;
+  testName: string[];
+}) => boolean | Promise<boolean>;
+
+export type UnflakableJestConfigInner = {
+  isFailureTestIndependent?: RegExp[] | IsFailureTestIndependentFn;
+  __unstableIsFailureTestIndependent?: undefined;
+};
+
+export type UnflakableJestConfig = UnflakableConfig & UnflakableJestConfigInner;
+
+export type UnflakableJestConfigEnabled = UnflakableConfigEnabled &
+  UnflakableJestConfigInner;
 
 export type UnflakableAssertionResult = AssertionResult & {
+  _unflakableCapturedStderr?: string;
+  _unflakableCapturedStdout?: string;
+  _unflakableIsFailureTestIndependent?: boolean;
   _unflakableIsQuarantined?: boolean;
 };
 
@@ -19,6 +44,9 @@ export type UnflakableTestResult = Omit<TestResult, "testResults"> & {
 export type UnflakableTestResultWithCounts = UnflakableTestResult & {
   _unflakableNumQuarantinedTests: number;
   _unflakableNumFlakyTests: number;
+  // This represents a *subset* of numPassingTests and should not be added to it, or we'll be
+  // double-counting passes.
+  _unflakableNumPassingTestsWithIndependentFailures: number;
 };
 
 export type UnflakableAggregatedResult = Omit<
@@ -35,6 +63,12 @@ export type UnflakableAggregatedResultWithCounts = Omit<
   _unflakableNumFlakyTests: number;
   _unflakableNumQuarantinedTests: number;
   _unflakableNumQuarantinedSuites: number;
+
+  // These represent *subsets* of numPassedTests/numPassedTestSuites and should not be added to
+  // those values. Rather, they are intended to be consumed by the SummaryReporter to show which
+  // tests/suites would have failed were it not for the failures being test-independent.
+  _unflakableNumPassedTestsWithIndependentFailures: number;
+  _unflakableNumPassedTestSuitesWithIndependentFailures: number;
 
   testResults: UnflakableTestResultWithCounts[];
 };

@@ -28,6 +28,8 @@ jobs:
           cache: yarn
 
       - id: install
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
         run: yarn install --immutable
 
       - run: yarn build
@@ -49,6 +51,16 @@ jobs:
         with:
           name: js-api
           path: packages/js-api/package.tgz
+
+      - name: Run @unflakable/cypress-plugin unit tests
+        env:
+          FORCE_COLOR: "1"
+        run: yarn workspace @unflakable/cypress-plugin test
+
+      - name: Run @unflakable/jest-plugin unit tests
+        env:
+          FORCE_COLOR: "1"
+        run: yarn workspace @unflakable/jest-plugin test
 
       - if: ${{ always() && steps.install.outcome == 'success' }}
         run: yarn lint
@@ -189,7 +201,8 @@ jobs:
           UNFLAKABLE_API_KEY=${{ secrets.UNFLAKABLE_API_KEY }} \
             yarn workspace cypress-integration test \
               --reporters @unflakable/jest-plugin/dist/reporter \
-              --runner @unflakable/jest-plugin/dist/runner
+              --runner @unflakable/jest-plugin/dist/runner \
+              --testRunner @unflakable/jest-plugin/dist/test-runner
 
   cypress_windows_integration_tests:
     name: "Cypress ${{ matrix.cypress }} Windows Node ${{ matrix.node }} Integration Tests"
@@ -294,7 +307,8 @@ jobs:
         run: |
           yarn workspace cypress-integration test `
             --reporters @unflakable/jest-plugin/dist/reporter `
-            --runner @unflakable/jest-plugin/dist/runner
+            --runner @unflakable/jest-plugin/dist/runner `
+            --testRunner @unflakable/jest-plugin/dist/test-runner
 
   jest_linux_integration_tests:
     name: "Jest ${{ matrix.jest }} Linux Node ${{ matrix.node }} Integration Tests"

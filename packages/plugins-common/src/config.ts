@@ -4,6 +4,7 @@ import { CosmiconfigResult } from "cosmiconfig/dist/types";
 import { cosmiconfig, cosmiconfigSync } from "cosmiconfig";
 import _debug from "debug";
 import { EnvVar, suiteIdOverride, uploadResultsOverride } from "./env";
+import * as util from "util";
 
 const debug = _debug("unflakable:plugins-common:config");
 
@@ -29,7 +30,7 @@ export type UnflakableConfig =
       testSuiteId: string | undefined;
     } & UnflakableConfigInner);
 
-type UnflakableConfigFile = {
+export type UnflakableConfigFile = {
   enabled: boolean;
   testSuiteId: string | undefined;
 } & UnflakableConfigInner;
@@ -44,9 +45,10 @@ const defaultConfig: UnflakableConfigFile = {
   uploadResults: true,
 };
 
-const validateConfig = (
-  configResult: NonNullable<CosmiconfigResult>
-): UnflakableConfigFile => {
+const validateConfig = <T extends object = { [key in string]: never }>(
+  configResult: NonNullable<CosmiconfigResult>,
+  validateExtraConfig: (config: CosmiconfigResult) => [T, string[]]
+): UnflakableConfigFile & T => {
   debug(`Loaded config from ${configResult.filepath}`);
   // NB: typeof null is "object"
   if (typeof configResult.config !== "object" || configResult.config === null) {
@@ -57,11 +59,13 @@ const validateConfig = (
     );
   }
 
+  const [extraConfig, validExtraConfigKeys] = validateExtraConfig(configResult);
+
   return Object.entries(configResult.config as { [s: string]: unknown }).reduce(
-    (result: UnflakableConfigFile, [key, value]: [string, unknown]) => {
+    (result: UnflakableConfigFile & T, [key, value]: [string, unknown]) => {
       const throwUnexpected = (): never => {
         throw new Error(
-          `Unexpected value \`${JSON.stringify(value)}\` for ${JSON.stringify(
+          `Unexpected value \`${util.format(value)}\` for ${JSON.stringify(
             key
           )} found in ${configResult.filepath}`
         );
@@ -139,12 +143,16 @@ const validateConfig = (
             return throwUnexpected();
           }
         default:
-          throw new Error(
-            `Unknown Unflakable config option \`${key}\` found in ${configResult.filepath}`
-          );
+          if (!validExtraConfigKeys.includes(key)) {
+            throw new Error(
+              `Unknown Unflakable config option \`${key}\` found in ${configResult.filepath}`
+            );
+          }
+
+          return result;
       }
     },
-    { ...defaultConfig }
+    { ...defaultConfig, ...extraConfig }
   );
 };
 
@@ -247,9 +255,10 @@ export const setCosmiconfigSync = (config: typeof cosmiconfigSync): void => {
   ).__unflakableCosmiconfigSync = config;
 };
 
-const loadConfigFile = async (
-  searchFrom: string
-): Promise<UnflakableConfigFile> => {
+const loadConfigFile = async <T extends object = { [key in string]: never }>(
+  searchFrom: string,
+  validateExtraConfig: (config: CosmiconfigResult) => [T, string[]]
+): Promise<UnflakableConfigFile & T> => {
   const configExplorer = (
     (
       globalThis as {
@@ -262,22 +271,31 @@ const loadConfigFile = async (
   debug(`Searching for config from directory \`${searchFrom}\` upward`);
   const configResult = await configExplorer.search(searchFrom);
   if (configResult !== null) {
-    return validateConfig(configResult);
+    return validateConfig(configResult, validateExtraConfig);
   } else {
     debug("No config file found; using defaults");
-    return { ...defaultConfig };
+    return {
+      ...defaultConfig,
+      ...((validateExtraConfig !== undefined
+        ? validateExtraConfig(configResult)
+        : {}) as T),
+    };
   }
 };
 
-export const loadConfig = (
+export const loadConfig = <T extends object = { [key in string]: never }>(
   searchFrom: string,
+  validateExtraConfig: (config: CosmiconfigResult) => [T, string[]],
   testSuiteId?: string
-): Promise<UnflakableConfig> =>
-  loadConfigFile(searchFrom).then((config) =>
+): Promise<UnflakableConfig & T> =>
+  loadConfigFile(searchFrom, validateExtraConfig).then((config) =>
     mergeConfigWithEnv(config, testSuiteId)
   );
 
-const loadConfigFileSync = (searchFrom: string): UnflakableConfigFile => {
+const loadConfigFileSync = <T extends object = { [key in string]: never }>(
+  searchFrom: string,
+  validateExtraConfig: (config: CosmiconfigResult) => [T, string[]]
+): UnflakableConfigFile & T => {
   const configExplorer = (
     (
       globalThis as {
@@ -290,15 +308,23 @@ const loadConfigFileSync = (searchFrom: string): UnflakableConfigFile => {
   debug(`Searching for config from directory \`${searchFrom}\` upward`);
   const configResult = configExplorer.search(searchFrom);
   if (configResult !== null) {
-    return validateConfig(configResult);
+    return validateConfig(configResult, validateExtraConfig);
   } else {
     debug("No config file found; using defaults");
-    return { ...defaultConfig };
+    return {
+      ...defaultConfig,
+      ...((validateExtraConfig !== undefined
+        ? validateExtraConfig(configResult)
+        : {}) as T),
+    };
   }
 };
 
-export const loadConfigSync = (searchFrom: string): UnflakableConfig =>
-  mergeConfigWithEnv(loadConfigFileSync(searchFrom));
+export const loadConfigSync = <T extends object = { [key in string]: never }>(
+  searchFrom: string,
+  validateExtraConfig: (config: CosmiconfigResult) => [T, string[]]
+): UnflakableConfig & T =>
+  mergeConfigWithEnv(loadConfigFileSync(searchFrom, validateExtraConfig));
 
 export const loadApiKey = (): string => {
   if (apiKey.value !== undefined && apiKey.value !== "") {

@@ -37,7 +37,8 @@ const specResultRegexMatch = (
 const testResultRegexMatch = (
   result: TestAttemptResult | "skipped",
   testName: string,
-  indent?: number
+  indent?: number,
+  isTestIndependent?: boolean
 ): RegExp =>
   new RegExp(
     `^${" ".repeat(indent ?? 4)}${escapeStringRegexp(
@@ -57,6 +58,10 @@ const testResultRegexMatch = (
     )} \u001b\\[2m${result === "skipped" ? "skipped " : ""}${escapeStringRegexp(
       testName
     )}${
+      isTestIndependent === true
+        ? escapeStringRegexp("\u001b[31m [test independent]\u001b[39m")
+        : ""
+    }${
       result === "quarantined"
         ? escapeStringRegexp("\u001b[33m [quarantined]\u001b[39m")
         : ""
@@ -67,15 +72,22 @@ const testResultRegexMatch = (
 
 export const verifyOutput = (
   {
+    expectFailuresToBeTestIndependent,
+    expectFailuresFirstAttemptToBeTestIndependent,
+    expectFlakeToBeTestIndependent,
+    expectFlakeFirstAttemptToBeTestIndependent,
     expectPluginToBeEnabled,
     expectQuarantinedTestsToBeQuarantined,
     expectQuarantinedTestsToBeSkipped,
+    expectQuarantinedTestsToBeTestIndependent,
+    expectQuarantinedTestsFirstAttemptToBeTestIndependent,
     expectResultsToBeUploaded,
     expectedFailureRetries,
     expectedFlakeTestNameSuffix,
     expectedSuiteId,
     failToFetchManifest,
     failToUploadResults,
+    flakeFailCount,
     quarantineFlake,
     skipFailures,
     skipFlake,
@@ -108,18 +120,45 @@ export const verifyOutput = (
       : 0
   );
 
+  const numFailAttempts =
+    !skipFailures &&
+    (testNamePattern === undefined ||
+      "describe block should ([escape regex]?.*$ fail".match(
+        testNamePattern
+      ) !== null)
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0;
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(specResultRegexMatch("fail", "src/", "fail.test.ts")),
-    !skipFailures &&
+    numFailAttempts
+  );
+
+  // Test-independent failure.
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      testResultRegexMatch(
+        "fail",
+        "should ([escape regex]?.*$ fail",
+        4,
+        true // isTestIndependent
+      )
+    ),
+    expectPluginToBeEnabled &&
+      !skipFailures &&
       (testNamePattern === undefined ||
         "describe block should ([escape regex]?.*$ fail".match(
           testNamePattern
         ) !== null)
-      ? expectPluginToBeEnabled
+      ? expectFailuresToBeTestIndependent
         ? 1 + expectedFailureRetries
-        : 1
+        : expectFailuresFirstAttemptToBeTestIndependent
+        ? 1
+        : 0
       : 0
   );
+  // Non-test-independent failures.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch("fail", "should ([escape regex]?.*$ fail")
@@ -130,7 +169,11 @@ export const verifyOutput = (
           testNamePattern
         ) !== null)
       ? expectPluginToBeEnabled
-        ? 1 + expectedFailureRetries
+        ? expectFailuresToBeTestIndependent
+          ? 0
+          : expectFailuresFirstAttemptToBeTestIndependent
+          ? expectedFailureRetries
+          : 1 + expectedFailureRetries
         : 1
       : 0
   );
@@ -143,21 +186,31 @@ export const verifyOutput = (
       !expectQuarantinedTestsToBeSkipped) &&
     (testNamePattern === undefined ||
       flakyTest1Name.match(testNamePattern) !== null);
+
+  // This test should fail then pass (though we're not verifying the order here).
+  // Test-independent failure.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
-      specResultRegexMatch(
+      testResultRegexMatch(
         quarantineFlake &&
           !failToFetchManifest &&
           expectQuarantinedTestsToBeQuarantined
           ? "quarantined"
           : "fail",
-        "src/",
-        "flake.test.ts"
+        flakyTest1Name,
+        2,
+        true
       )
     ),
-    flakyTest1ShouldRun ? 1 : 0
+    expectPluginToBeEnabled && flakyTest1ShouldRun
+      ? expectFlakeToBeTestIndependent
+        ? flakeFailCount
+        : expectFlakeFirstAttemptToBeTestIndependent
+        ? 1
+        : 0
+      : 0
   );
-  // This test should fail then pass (though we're not verifying the order here).
+  // Non-test-independent failures.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
@@ -170,8 +223,17 @@ export const verifyOutput = (
         2
       )
     ),
-    flakyTest1ShouldRun ? 1 : 0
+    flakyTest1ShouldRun
+      ? expectPluginToBeEnabled
+        ? expectFlakeToBeTestIndependent
+          ? 0 // These all ran above
+          : expectFlakeFirstAttemptToBeTestIndependent
+          ? Math.max(0, flakeFailCount - 1)
+          : flakeFailCount
+        : 1 // Plugin disabled
+      : 0
   );
+
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(testResultRegexMatch("pass", flakyTest1Name, 2)),
     expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest1ShouldRun
@@ -196,7 +258,8 @@ export const verifyOutput = (
           ? "quarantined"
           : "fail",
         flakyTest2Name,
-        2
+        2,
+        expectFlakeToBeTestIndependent
       )
     ),
     flakyTest2ShouldRun ? 1 : 0
@@ -211,11 +274,45 @@ export const verifyOutput = (
 
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
+      specResultRegexMatch(
+        quarantineFlake &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
+        "src/",
+        "flake.test.ts"
+      )
+    ),
+    flakyTest1ShouldRun || flakyTest2ShouldRun ? flakeFailCount : 0
+  );
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      specResultRegexMatch("pass", "src/", "flake.test.ts")
+    ),
+    expectPluginToBeEnabled &&
+      (flakyTest1ShouldRun || flakyTest2ShouldRun) &&
+      expectedFailureRetries > 0
+      ? 1
+      : 0
+  );
+
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
       specResultRegexMatch("fail", "src/", "invalid.test.ts")
     ),
     !skipFailures ? 1 : 0
   );
 
+  const numQuarantinedAttempts =
+    !skipQuarantined &&
+    (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
+    (testNamePattern === undefined ||
+      "describe block should be quarantined".match(testNamePattern) !== null)
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0;
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       specResultRegexMatch(
@@ -229,15 +326,37 @@ export const verifyOutput = (
         "quarantined.test.ts"
       )
     ),
-    !skipQuarantined &&
-      (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
+    numQuarantinedAttempts
+  );
+
+  // Test-independent failure.
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      testResultRegexMatch(
+        expectPluginToBeEnabled &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
+        "should be quarantined",
+        4,
+        true
+      )
+    ),
+    expectPluginToBeEnabled &&
+      !skipQuarantined &&
       (testNamePattern === undefined ||
-        "describe block should be quarantined".match(testNamePattern) !== null)
-      ? expectPluginToBeEnabled
+        "describe block should be quarantined".match(testNamePattern) !==
+          null) &&
+      !expectQuarantinedTestsToBeSkipped
+      ? expectQuarantinedTestsToBeTestIndependent
         ? 1 + expectedFailureRetries
-        : 1
+        : expectQuarantinedTestsFirstAttemptToBeTestIndependent
+        ? 1
+        : 0
       : 0
   );
+  // Non-test-independent failures.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
@@ -255,7 +374,11 @@ export const verifyOutput = (
           null) &&
       !expectQuarantinedTestsToBeSkipped
       ? expectPluginToBeEnabled
-        ? 1 + expectedFailureRetries
+        ? expectQuarantinedTestsToBeTestIndependent
+          ? 0
+          : expectQuarantinedTestsFirstAttemptToBeTestIndependent
+          ? expectedFailureRetries
+          : 1 + expectedFailureRetries
         : 1
       : 0
   );
@@ -274,20 +397,67 @@ export const verifyOutput = (
     "mixed mixed: should pass".match(testNamePattern) !== null;
 
   // Mixed file containing both a failed test and a quarantined one.
-  expect(stderrLines).toContainEqualTimes(
-    expect.stringMatching(
-      specResultRegexMatch("fail", "src/", "mixed.test.ts")
-    ),
+  const numMixedFailingAttempts =
     ((!expectPluginToBeEnabled ||
       failToFetchManifest ||
       !expectQuarantinedTestsToBeQuarantined) &&
       mixedQuarantinedTestShouldRun) ||
-      mixedFailTestShouldRun
+    mixedFailTestShouldRun
       ? expectPluginToBeEnabled
         ? 1 + expectedFailureRetries
         : 1
+      : 0;
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      specResultRegexMatch("fail", "src/", "mixed.test.ts")
+    ),
+    numMixedFailingAttempts
+  );
+  const numMixedQuarantinedAttempts =
+    expectPluginToBeEnabled &&
+    !failToFetchManifest &&
+    !mixedFailTestShouldRun &&
+    mixedQuarantinedTestShouldRun &&
+    expectQuarantinedTestsToBeQuarantined
+      ? 1 + expectedFailureRetries
+      : 0;
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      specResultRegexMatch("quarantined", "src/", "mixed.test.ts")
+    ),
+    numMixedQuarantinedAttempts
+  );
+  const hasMixedPassingAttempt = skipFailures && skipQuarantined;
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      specResultRegexMatch("pass", "src/", "mixed.test.ts")
+    ),
+    hasMixedPassingAttempt ? 1 : 0
+  );
+
+  // Test-independent failure.
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      testResultRegexMatch(
+        expectPluginToBeEnabled &&
+          !failToFetchManifest &&
+          expectQuarantinedTestsToBeQuarantined
+          ? "quarantined"
+          : "fail",
+        "mixed: should be quarantined",
+        4,
+        true // isTestIndependent
+      )
+    ),
+    expectPluginToBeEnabled && mixedQuarantinedTestShouldRun
+      ? expectQuarantinedTestsToBeTestIndependent
+        ? 1 + expectedFailureRetries
+        : expectQuarantinedTestsFirstAttemptToBeTestIndependent
+        ? 1
+        : 0
       : 0
   );
+  // Non-test-independent failures.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
@@ -301,15 +471,43 @@ export const verifyOutput = (
     ),
     mixedQuarantinedTestShouldRun
       ? expectPluginToBeEnabled
-        ? 1 + expectedFailureRetries
+        ? expectQuarantinedTestsToBeTestIndependent
+          ? 0
+          : expectQuarantinedTestsFirstAttemptToBeTestIndependent
+          ? expectedFailureRetries
+          : 1 + expectedFailureRetries
         : 1
       : 0
   );
+
+  // Test-independent failure.
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      testResultRegexMatch(
+        "fail",
+        "mixed: should fail",
+        4,
+        true // isTestIndependent
+      )
+    ),
+    expectPluginToBeEnabled && mixedFailTestShouldRun
+      ? expectFailuresToBeTestIndependent
+        ? 1 + expectedFailureRetries
+        : expectFailuresFirstAttemptToBeTestIndependent
+        ? 1
+        : 0
+      : 0
+  );
+  // Non-test-independent failures.
   expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(testResultRegexMatch("fail", "mixed: should fail")),
     mixedFailTestShouldRun
       ? expectPluginToBeEnabled
-        ? 1 + expectedFailureRetries
+        ? expectFailuresToBeTestIndependent
+          ? 0
+          : expectFailuresFirstAttemptToBeTestIndependent
+          ? expectedFailureRetries
+          : 1 + expectedFailureRetries
         : 1
       : 0
   );
@@ -336,6 +534,41 @@ export const verifyOutput = (
       : 0
   );
 
+  for (let attempt = 1; attempt < expectedFailureRetries; attempt++) {
+    const numTestsToRetry =
+      (!skipFailures && numFailAttempts > attempt ? 1 : 0) +
+      (flakeFailCount + 1 > attempt
+        ? (flakyTest1ShouldRun ? 1 : 0) + (flakyTest2ShouldRun ? 1 : 0)
+        : 0) +
+      (numQuarantinedAttempts > attempt ? 1 : 0) +
+      (numMixedFailingAttempts + numMixedQuarantinedAttempts > attempt
+        ? (mixedFailTestShouldRun ? 1 : 0) +
+          (mixedQuarantinedTestShouldRun ? 1 : 0)
+        : 0);
+    const numTestFilesToRetry =
+      (!skipFailures && numFailAttempts > attempt ? 1 : 0) +
+      ((flakyTest1ShouldRun || flakyTest2ShouldRun) &&
+      flakeFailCount + 1 > attempt
+        ? 1
+        : 0) +
+      (numQuarantinedAttempts > attempt ? 1 : 0) +
+      ((mixedFailTestShouldRun || mixedQuarantinedTestShouldRun) &&
+      numMixedFailingAttempts + numMixedQuarantinedAttempts > attempt
+        ? 1
+        : 0);
+    expect(numTestsToRetry).toBeGreaterThanOrEqual(numTestFilesToRetry);
+    expect(stderrLines).toContainEqualTimes(
+      `\u001b[33m\u001b[1mRetrying ${numTestsToRetry} failed test${
+        numTestsToRetry === 1 ? "" : "s"
+      } from ${numTestFilesToRetry} file${
+        numTestFilesToRetry === 1 ? "" : "s"
+      } -- ${expectedFailureRetries - attempt} ${
+        expectedFailureRetries - attempt === 1 ? "retry" : "retries"
+      } remaining\u001b[22m\u001b[39m`,
+      expectPluginToBeEnabled && numTestsToRetry > 0 ? 1 : 0
+    );
+  }
+
   // Test our SummaryReporter customization.
   expect(stderrLines).toContain(
     `\u001b[1mTest Suites: \u001b[22m${
@@ -352,7 +585,11 @@ export const verifyOutput = (
         : ""
     }${
       expectedResults.passedSuites !== 0
-        ? `\u001b[1m\u001b[32m${expectedResults.passedSuites} passed\u001b[39m\u001b[22m, `
+        ? `\u001b[1m\u001b[32m${expectedResults.passedSuites} passed${
+            expectedResults.passedSuitesWithIndependentFailures > 0
+              ? ` (${expectedResults.passedSuitesWithIndependentFailures} with test-independent failures)`
+              : ""
+          }\u001b[39m\u001b[22m, `
         : ""
     }${
       expectedResults.skippedSuites !== 0
@@ -391,7 +628,11 @@ export const verifyOutput = (
         : ""
     }${
       expectedResults.passedTests !== 0
-        ? `\u001b[1m\u001b[32m${expectedResults.passedTests} passed\u001b[39m\u001b[22m, `
+        ? `\u001b[1m\u001b[32m${expectedResults.passedTests} passed${
+            expectedResults.passedTestsWithIndependentFailures > 0
+              ? ` (${expectedResults.passedTestsWithIndependentFailures} with test-independent failures)`
+              : ""
+          }\u001b[39m\u001b[22m, `
         : ""
     }${
       expectedResults.failedTests +
@@ -422,7 +663,9 @@ export const verifyOutput = (
   expect(stderrLines).toContainEqual(
     expect.stringMatching(
       new RegExp(
-        `${escapeStringRegexp("\u001b[1mTime:\u001b[22m        ")}[0-9.]+ s`
+        `${escapeStringRegexp(
+          "\u001b[1mTime:\u001b[22m        "
+        )}(?:\u001b\\[1m\u001b\\[33m[0-9.]+ s\u001b\\[39m\u001b\\[22m|[0-9.]+ s)(?:, estimated [0-9.]+ s)?`
       )
     )
   );

@@ -265,7 +265,11 @@ const main = async (): Promise<void> => {
       ? path.resolve(process.cwd(), runOptions.project)
       : process.cwd();
 
-  const unflakableConfig = await loadConfig(projectRoot, args["test-suite-id"]);
+  const unflakableConfig = await loadConfig(
+    projectRoot,
+    () => [{}, []],
+    args["test-suite-id"]
+  );
   debug(`Unflakable plugin is ${unflakableConfig.enabled ? "en" : "dis"}abled`);
 
   let configFile: string | undefined = undefined;

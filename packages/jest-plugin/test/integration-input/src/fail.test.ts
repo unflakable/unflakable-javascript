@@ -6,6 +6,8 @@ describe("describe block", () => {
     // properly.
     "should ([escape regex]?.*$ fail",
     () => {
+      process.stderr.write("fail stderr\n");
+      process.stdout.write("fail stdout\n");
       if (process.env.TEST_SNAPSHOTS !== undefined) {
         expect({ foo: true }).toMatchInlineSnapshot(`
           Object {
@@ -13,7 +15,7 @@ describe("describe block", () => {
           }
         `);
       } else {
-        throw new Error();
+        throw new Error("test failed\nnew line");
       }
     }
   );

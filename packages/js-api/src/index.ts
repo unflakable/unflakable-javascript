@@ -50,10 +50,12 @@ export type TestSuiteManifest = {
 };
 
 export type TestAttemptResult = "pass" | "fail" | "quarantined";
+export type TestAttemptFailureReason = "independent";
 export type TestRunAttemptRecord = {
   start_time?: string;
   end_time?: string;
   duration_ms?: number;
+  failure_reason?: TestAttemptFailureReason;
   result: TestAttemptResult;
 };
 export type TestRunRecord = {

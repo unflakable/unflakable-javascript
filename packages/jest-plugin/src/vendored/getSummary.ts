@@ -93,6 +93,8 @@ export const getSummary = (
   const snapshotsUpdated = snapshotResults.updated;
   const suitesFailed = aggregatedResults.numFailedTestSuites;
   const suitesPassed = aggregatedResults.numPassedTestSuites;
+  const suitesPassedWithIndependentFailures =
+    aggregatedResults._unflakableNumPassedTestSuitesWithIndependentFailures;
   const suitesPending = aggregatedResults.numPendingTestSuites;
   const suitesQuarantined = aggregatedResults._unflakableNumQuarantinedSuites;
   const suitesRun = suitesFailed + suitesPassed + suitesQuarantined;
@@ -100,6 +102,8 @@ export const getSummary = (
   const testsFailed = aggregatedResults.numFailedTests;
   const testsFlaky = aggregatedResults._unflakableNumFlakyTests;
   const testsPassed = aggregatedResults.numPassedTests;
+  const testsPassedWithIndependentFailures =
+    aggregatedResults._unflakableNumPassedTestsWithIndependentFailures;
   const testsPending = aggregatedResults.numPendingTests;
   const testsQuarantined = aggregatedResults._unflakableNumQuarantinedTests;
   const testsTodo = aggregatedResults.numTodoTests;
@@ -117,7 +121,15 @@ export const getSummary = (
       ? chalk.bold.yellow(`${suitesPending} skipped`) + ", "
       : ""
   }${
-    suitesPassed > 0 ? chalk.bold.green(`${suitesPassed} passed`) + ", " : ""
+    suitesPassed > 0
+      ? chalk.bold.green(
+          `${suitesPassed} passed${
+            suitesPassedWithIndependentFailures > 0
+              ? ` (${suitesPassedWithIndependentFailures} with test-independent failures)`
+              : ""
+          }`
+        ) + ", "
+      : ""
   }${
     suitesRun !== suitesTotal ? `${suitesRun} of ${suitesTotal}` : suitesTotal
   } total`;
@@ -135,7 +147,15 @@ export const getSummary = (
       ? chalk.bold.yellow(`${testsPending} skipped`) + ", "
       : "") +
     (testsTodo > 0 ? chalk.bold.magenta(`${testsTodo} todo`) + ", " : "") +
-    (testsPassed > 0 ? chalk.bold.green(`${testsPassed} passed`) + ", " : "") +
+    (testsPassed > 0
+      ? chalk.bold.green(
+          `${testsPassed} passed${
+            testsPassedWithIndependentFailures > 0
+              ? ` (${testsPassedWithIndependentFailures} with test-independent failures)`
+              : ""
+          }`
+        ) + ", "
+      : "") +
     `${testsTotal} total`;
 
   const snapshots =

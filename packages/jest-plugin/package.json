@@ -17,13 +17,18 @@
     "./dist/runner": {
       "types": "./dist/runner.d.ts",
       "default": "./dist/runner.js"
+    },
+    "./dist/test-runner": {
+      "types": "./dist/test-runner.d.ts",
+      "default": "./dist/test-runner.js"
     }
   },
   "files": [
     "README.md",
     "dist/**/*.js",
     "dist/reporter.d.ts",
-    "dist/runner.d.ts"
+    "dist/runner.d.ts",
+    "dist/test-runner.d.ts"
   ],
   "dependencies": {
     "@unflakable/js-api": "workspace:^",
@@ -32,6 +37,7 @@
     "debug": "^4.3.3",
     "deep-equal": "^2.0.5",
     "escape-string-regexp": "^4.0.0",
+    "semver": "^7.5.4",
     "simple-git": "^3.16.0"
   },
   "devDependencies": {
@@ -50,6 +56,9 @@
     "@types/jest": "25.1.0 - 29",
     "@unflakable/plugins-common": "workspace:^",
     "exit": "^0.1.2",
+    "jest": "25.1.0 - 29",
+    "jest-circus": "25.1.0 - 29",
+    "jest-environment-node": "25.1.0 - 29",
     "jest-runner": "25.1.0 - 29",
     "jest-util": "25.1.0 - 29",
     "rimraf": "^5.0.1",
@@ -62,6 +71,7 @@
   "scripts": {
     "build": "yarn clean && tsc --noEmit && rollup --config",
     "build:watch": "rollup --config --watch",
-    "clean": "rimraf dist/"
+    "clean": "rimraf dist/",
+    "test": "jest --useStderr --verbose"
   }
 }

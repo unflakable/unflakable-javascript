@@ -24,6 +24,7 @@ import {
   UnflakableAggregatedResult,
   UnflakableAggregatedResultWithCounts,
   UnflakableAssertionResult,
+  UnflakableJestConfig,
   UnflakableTestResult,
   UnflakableTestResultWithCounts,
 } from "./types";
@@ -41,12 +42,11 @@ import {
   commitOverride,
   getRepoRoot,
   loadApiKey,
-  loadConfigSync,
   loadGitRepo,
   toPosix,
-  UnflakableConfig,
   UnflakableConfigEnabled,
 } from "@unflakable/plugins-common";
+import { loadConfig } from "./config";
 import { addResult, makeEmptyAggregatedTestResult } from "@jest/test-result";
 
 const debug = _debug("unflakable:reporter");
@@ -99,8 +99,8 @@ const getIcon = (test: UnflakableAssertionResult): string => {
   }
 };
 
-// Recomputes the aggregated stats after taking into account retries, flakes, and quarantined
-// failures. This function returns new objects and does NOT modify its input.
+// Recomputes the aggregated stats after taking into account retries, flakes, quarantine, and
+// test-independent failures. This function returns new objects and does NOT modify its input.
 const computeResultsForReporter = (
   origAggregatedResults: UnflakableAggregatedResult
 ): UnflakableAggregatedResultWithCounts => {
@@ -120,7 +120,7 @@ const computeResultsForReporter = (
   );
 
   // Only includes the first attempt of each test file, but the stats take into account subsequent
-  // attempts to determine flakiness.
+  // attempts to determine flakiness and test-independence.
   const updatedTestResults: UnflakableTestResultWithCounts[] =
     origAggregatedResults.testResults
       .filter((testResult) => (testResult._unflakableAttempt ?? 0) === 0)
@@ -132,6 +132,7 @@ const computeResultsForReporter = (
           numFailingTests,
           numFlakyTests,
           numPassingTests,
+          numPassingTestsWithIndependentFailures,
           numQuarantinedTests,
         } = testResult.testResults.reduce(
           (
@@ -139,6 +140,7 @@ const computeResultsForReporter = (
               numFailingTests,
               numFlakyTests,
               numPassingTests,
+              numPassingTestsWithIndependentFailures,
               numQuarantinedTests,
             },
             assertionResult
@@ -151,7 +153,16 @@ const computeResultsForReporter = (
               attempts.some((attempt) => attempt.status === "passed") &&
               attempts.every(
                 (attempt) =>
-                  attempt.status === "passed" || attempt.status === "pending"
+                  attempt.status === "passed" ||
+                  attempt.status === "pending" ||
+                  attempt._unflakableIsFailureTestIndependent === true
+              );
+            const isPassingWithTestIndependentFailures =
+              isPassing &&
+              attempts.some(
+                (attempt) =>
+                  attempt.status === "failed" &&
+                  attempt._unflakableIsFailureTestIndependent === true
               );
             const isQuarantined =
               !isPassing &&
@@ -166,6 +177,7 @@ const computeResultsForReporter = (
               attempts.some(
                 (attempt) =>
                   attempt.status === "failed" &&
+                  attempt._unflakableIsFailureTestIndependent !== true &&
                   attempt._unflakableIsQuarantined !== true
               );
             const isFailing =
@@ -179,6 +191,9 @@ const computeResultsForReporter = (
               numFailingTests: numFailingTests + (isFailing ? 1 : 0),
               numFlakyTests: numFlakyTests + (isFlaky ? 1 : 0),
               numPassingTests: numPassingTests + (isPassing ? 1 : 0),
+              numPassingTestsWithIndependentFailures:
+                numPassingTestsWithIndependentFailures +
+                (isPassingWithTestIndependentFailures ? 1 : 0),
               numQuarantinedTests:
                 numQuarantinedTests + (isQuarantined ? 1 : 0),
             };
@@ -187,6 +202,7 @@ const computeResultsForReporter = (
             numFailingTests: 0,
             numFlakyTests: 0,
             numPassingTests: 0,
+            numPassingTestsWithIndependentFailures: 0,
             numQuarantinedTests: 0,
           }
         );
@@ -197,6 +213,8 @@ const computeResultsForReporter = (
           numPassingTests,
           _unflakableNumFlakyTests: numFlakyTests,
           _unflakableNumQuarantinedTests: numQuarantinedTests,
+          _unflakableNumPassingTestsWithIndependentFailures:
+            numPassingTestsWithIndependentFailures,
         };
       });
 
@@ -213,9 +231,12 @@ const computeResultsForReporter = (
     _unflakableNumFlakyTests: 0,
     _unflakableNumQuarantinedTests: 0,
     _unflakableNumQuarantinedSuites: 0,
+    _unflakableNumPassedTestsWithIndependentFailures: 0,
+    _unflakableNumPassedTestSuitesWithIndependentFailures: 0,
   };
 
   return updatedTestResults.reduce((aggregatedResults, testResult) => {
+    const prevNumPassedTestSuites = aggregatedResults.numPassedTestSuites;
     addResult(aggregatedResults, testResult);
 
     aggregatedResults.numTotalTests +=
@@ -227,20 +248,23 @@ const computeResultsForReporter = (
     aggregatedResults._unflakableNumQuarantinedTests +=
       testResult._unflakableNumQuarantinedTests;
 
-    // Handle edge cases that onResult() considers a suite pass but that should be failed or
-    // quarantined:
-    // https://github.com/jestjs/jest/blob/6d2632adae0f0fa1fe116d3b475fd9783d0de1b5/packages/jest-test-result/src/helpers.ts#L110
-    if (
-      !testResult.skipped &&
-      testResult.testExecError === undefined &&
-      testResult.numFailingTests === 0
-    ) {
+    aggregatedResults._unflakableNumPassedTestsWithIndependentFailures +=
+      testResult._unflakableNumPassingTestsWithIndependentFailures;
+
+    if (aggregatedResults.numPassedTestSuites > prevNumPassedTestSuites) {
+      // Handle edge cases that onResult() considers a suite pass but that should be failed or
+      // quarantined:
+      // https://github.com/jestjs/jest/blob/6d2632adae0f0fa1fe116d3b475fd9783d0de1b5/packages/jest-test-result/src/helpers.ts#L110
       if (testResult._unflakableNumFlakyTests > 0) {
         aggregatedResults.numFailedTestSuites += 1;
         aggregatedResults.numPassedTestSuites -= 1;
       } else if (testResult._unflakableNumQuarantinedTests > 0) {
         aggregatedResults._unflakableNumQuarantinedSuites += 1;
         aggregatedResults.numPassedTestSuites -= 1;
+      } else if (
+        testResult._unflakableNumPassingTestsWithIndependentFailures > 0
+      ) {
+        aggregatedResults._unflakableNumPassedTestSuitesWithIndependentFailures++;
       }
     }
 
@@ -250,7 +274,7 @@ const computeResultsForReporter = (
 
 export default class UnflakableReporter extends BaseReporter {
   private readonly apiKey: string;
-  private readonly unflakableConfig: UnflakableConfig;
+  private readonly unflakableConfig: UnflakableJestConfig;
 
   private readonly rootDir: string;
   private readonly defaultReporter: DefaultReporter & {
@@ -263,7 +287,7 @@ export default class UnflakableReporter extends BaseReporter {
     debug("constructor");
     super();
     this.rootDir = globalConfig.rootDir;
-    this.unflakableConfig = loadConfigSync(globalConfig.rootDir);
+    this.unflakableConfig = loadConfig(globalConfig.rootDir);
     this.apiKey = this.unflakableConfig.enabled ? loadApiKey() : "";
 
     if (globalConfig.verbose === true) {
@@ -307,6 +331,9 @@ export default class UnflakableReporter extends BaseReporter {
           " " +
           chalk.dim(
             assertionResult.title +
+            (assertionResult._unflakableIsFailureTestIndependent === true
+              ? chalk.red(" [test independent]")
+              : "") +
             (assertionResult._unflakableIsQuarantined === true
               ? chalk.yellow(" [quarantined]")
               : "") +
@@ -424,6 +451,7 @@ export default class UnflakableReporter extends BaseReporter {
       ).length,
       // We don't know when tests are flaky until the end.
       _unflakableNumFlakyTests: 0,
+      _unflakableNumPassingTestsWithIndependentFailures: 0,
       _unflakableNumQuarantinedTests: testResult.testResults.filter(
         (attempt) =>
           attempt.status === "failed" &&
@@ -521,6 +549,12 @@ export default class UnflakableReporter extends BaseReporter {
                     ? Math.floor(testResult.duration)
                     : undefined,
                 result: result as NonNullable<typeof result>,
+                ...((result === "fail" || result === "quarantined") &&
+                testResult._unflakableIsFailureTestIndependent === true
+                  ? {
+                      failure_reason: "independent",
+                    }
+                  : {}),
               })),
           })
         )

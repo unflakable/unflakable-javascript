@@ -7,25 +7,26 @@ import fs from "fs/promises";
   async (i) => {
     if (process.env.FLAKY_TEST_TEMP === undefined) {
       throw new Error("missing FLAKY_TEST_TEMP environment variable");
+    } else if (process.env.FLAKE_FAIL_COUNT === undefined) {
+      throw new Error("missing FLAKE_FAIL_COUNT environment variable");
     }
 
     const tempFilePath = `${process.env.FLAKY_TEST_TEMP}${i}`;
-    // We can't maintain in-memory state between test tries, so we write to a temp file to indicate
-    // that it's not the first attempt.
-    const exists = await fs
-      .stat(tempFilePath)
-      .then(() => true)
-      .catch(() => false);
-    await fs.writeFile(tempFilePath, "");
+    // We can't maintain in-memory state between test tries, so we write to a temp file.
+    const attempt = await fs
+      .readFile(tempFilePath, { encoding: "utf8" })
+      .then(Number.parseInt)
+      .catch(() => 0);
+    await fs.writeFile(tempFilePath, (attempt + 1).toString());
 
     if (process.env.TEST_SNAPSHOTS !== undefined) {
-      expect({ exists }).toMatchInlineSnapshot(`
+      expect({ exists: attempt > 0 }).toMatchInlineSnapshot(`
         Object {
           "exists": true,
         }
       `);
-    } else if (!exists) {
-      throw new Error("first try should fail");
+    } else if (attempt < Number.parseInt(process.env.FLAKE_FAIL_COUNT)) {
+      throw new Error(`first try should fail`);
     }
   }
 );

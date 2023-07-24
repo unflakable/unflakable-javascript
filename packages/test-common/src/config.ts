@@ -6,7 +6,12 @@ import {
   setCosmiconfig,
   setCosmiconfigSync,
 } from "@unflakable/plugins-common";
-import type { cosmiconfig, cosmiconfigSync, Options } from "cosmiconfig";
+import {
+  cosmiconfig,
+  cosmiconfigSync,
+  Options,
+  OptionsSync,
+} from "cosmiconfig";
 import { default as expect } from "expect";
 
 const debug = _debug("unflakable:test-common:config");
@@ -16,12 +21,17 @@ const throwUnimplemented = (): never => {
 };
 
 export type CosmiconfigMockParams = {
-  searchFrom: string;
-  searchResult: {
-    config: Partial<UnflakableConfig>;
-    filepath: string;
-  } | null;
-};
+  expectedSearchFrom: string;
+} & (
+  | { pathToLoad: string; searchResult?: undefined }
+  | {
+      pathToLoad?: undefined;
+      searchResult: {
+        config: Partial<UnflakableConfig>;
+        filepath: string;
+      } | null;
+    }
+);
 
 export const CONFIG_MOCK_ENV_VAR = "__UNFLAKABLE_TEST_CONFIG_MOCK_PARAMS";
 
@@ -55,8 +65,12 @@ export const registerCosmiconfigMock = (): void => {
         search: (
           searchFrom?: string
         ): ReturnType<ReturnType<typeof cosmiconfig>["search"]> => {
-          expect(searchFrom).toBe(params.searchFrom);
-          return Promise.resolve(params.searchResult);
+          expect(searchFrom).toBe(params.expectedSearchFrom);
+          if (params.pathToLoad !== undefined) {
+            return cosmiconfig(moduleName, options).load(params.pathToLoad);
+          } else {
+            return Promise.resolve(params.searchResult);
+          }
         },
       };
     }
@@ -65,7 +79,7 @@ export const registerCosmiconfigMock = (): void => {
   setCosmiconfigSync(
     (
       moduleName: string,
-      options?: Options
+      options?: OptionsSync
     ): ReturnType<typeof cosmiconfigSync> => {
       expect(moduleName).toBe("unflakable");
       expect(options?.searchPlaces).toContain("package.json");
@@ -81,8 +95,12 @@ export const registerCosmiconfigMock = (): void => {
         search: (
           searchFrom?: string
         ): ReturnType<ReturnType<typeof cosmiconfigSync>["search"]> => {
-          expect(searchFrom).toBe(params.searchFrom);
-          return params.searchResult;
+          expect(searchFrom).toBe(params.expectedSearchFrom);
+          if (params.pathToLoad !== undefined) {
+            return cosmiconfigSync(moduleName, options).load(params.pathToLoad);
+          } else {
+            return params.searchResult;
+          }
         },
       };
     }

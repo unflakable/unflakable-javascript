@@ -1,10 +1,9 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
-import * as temp from "temp";
+import { tmpName, TmpNameOptions } from "tmp";
 import {
   CreateTestSuiteRunInlineRequest,
   TEST_NAME_ENTRY_MAX_LENGTH,
-  TestRunAttemptRecord,
   TestRunRecord,
   TestSuiteManifest,
 } from "@unflakable/js-api";
@@ -16,7 +15,7 @@ import {
   CosmiconfigMockParams,
 } from "unflakable-test-common/dist/config";
 import path from "path";
-import { promisify } from "util";
+import { promisify } from "es6-promisify";
 import { execFile } from "child_process";
 import {
   MockBackend,
@@ -28,6 +27,8 @@ import {
   AsyncTestError,
   spawnTestWithTimeout,
 } from "unflakable-test-common/dist/spawn";
+import * as util from "util";
+import * as fs from "fs/promises";
 
 // Jest times out after 120 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
@@ -60,6 +61,7 @@ export type SimpleGitMockParams =
 
 export type TestCaseParams = {
   config: Partial<UnflakableConfig> | null;
+  configJs: string | null;
   envVars: { [key in string]: string | undefined };
   expectedApiKey: string;
   expectedBranch: string | undefined;
@@ -68,13 +70,20 @@ export type TestCaseParams = {
   expectedFlakeTestNameSuffix: string;
   expectedSuiteId: string;
   expectedRepoRelativePathPrefix: string;
+  expectFailuresToBeTestIndependent: boolean;
+  expectFailuresFirstAttemptToBeTestIndependent: boolean;
+  expectFlakeToBeTestIndependent: boolean;
+  expectFlakeFirstAttemptToBeTestIndependent: boolean;
   expectPluginToBeEnabled: boolean;
   expectResultsToBeUploaded: boolean;
   expectQuarantinedTestsToBeQuarantined: boolean;
   expectQuarantinedTestsToBeSkipped: boolean;
+  expectQuarantinedTestsToBeTestIndependent: boolean;
+  expectQuarantinedTestsFirstAttemptToBeTestIndependent: boolean;
   expectSnapshots: boolean;
   failToFetchManifest: boolean;
   failToUploadResults: boolean;
+  flakeFailCount: number;
   git: SimpleGitMockParams;
   quarantineFlake: boolean;
   skipFailures: boolean;
@@ -92,7 +101,9 @@ const TIMESTAMP_REGEX =
 
 export type ResultCounts = {
   passedSuites: number;
+  passedSuitesWithIndependentFailures: number;
   passedTests: number;
+  passedTestsWithIndependentFailures: number;
   failedSuites: number;
   failedTests: number;
   flakyTests: number;
@@ -111,13 +122,20 @@ const verifyUploadResults = (
   request: CompletedRequest
 ): void => {
   const {
+    expectFailuresFirstAttemptToBeTestIndependent,
+    expectFailuresToBeTestIndependent,
+    expectFlakeFirstAttemptToBeTestIndependent,
+    expectFlakeToBeTestIndependent,
+    expectQuarantinedTestsFirstAttemptToBeTestIndependent,
+    expectQuarantinedTestsToBeQuarantined,
+    expectQuarantinedTestsToBeSkipped,
+    expectQuarantinedTestsToBeTestIndependent,
     expectedBranch,
     expectedCommit,
     expectedFailureRetries,
     expectedFlakeTestNameSuffix,
-    expectQuarantinedTestsToBeQuarantined,
-    expectQuarantinedTestsToBeSkipped,
     failToFetchManifest,
+    flakeFailCount,
     quarantineFlake,
     skipFailures,
     skipFlake,
@@ -171,92 +189,70 @@ const verifyUploadResults = (
               {
                 filename: specRepoPath(params, "fail"),
                 name: ["describe block", "should ([escape regex]?.*$ fail"],
-                attempts: Array<TestRunAttemptRecord>(
-                  expectedFailureRetries + 1
-                ).fill({
-                  duration_ms: expect.any(Number) as number,
-                  result: "fail",
-                }),
+                attempts: Array(expectedFailureRetries + 1)
+                  .fill(0)
+                  .map((_, idx) => ({
+                    duration_ms: expect.any(Number) as number,
+                    result: "fail",
+                    ...(expectFailuresToBeTestIndependent ||
+                    (expectFailuresFirstAttemptToBeTestIndependent && idx === 0)
+                      ? {
+                          failure_reason: "independent",
+                        }
+                      : {}),
+                  })),
               },
             ] as TestRunRecord[])),
-        ...(skipFlake ||
-        (expectQuarantinedTestsToBeSkipped &&
-          quarantineFlake &&
-          !failToFetchManifest) ||
-        (testNamePattern !== undefined &&
-          `should be flaky 1${expectedFlakeTestNameSuffix}`.match(
-            testNamePattern
-          ) === null)
-          ? []
-          : [
-              {
-                filename: specRepoPath(params, "flake"),
-                name: [
-                  `should be flaky 1${expectedFlakeTestNameSuffix}`.substring(
-                    0,
-                    TEST_NAME_ENTRY_MAX_LENGTH
-                  ),
-                ],
-                attempts: [
-                  {
-                    duration_ms: expect.any(Number) as number,
-                    result:
-                      quarantineFlake &&
-                      !failToFetchManifest &&
-                      expectQuarantinedTestsToBeQuarantined
-                        ? "quarantined"
-                        : "fail",
-                  },
-                  ...(expectedFailureRetries > 0
-                    ? [
-                        {
-                          duration_ms: expect.any(Number) as number,
-                          result: "pass",
-                        },
-                      ]
-                    : []),
-                ],
-              } as TestRunRecord,
-            ]),
-        ...(skipFlake ||
-        (expectQuarantinedTestsToBeSkipped &&
-          quarantineFlake &&
-          !failToFetchManifest) ||
-        (testNamePattern !== undefined &&
-          `should be flaky 2${expectedFlakeTestNameSuffix}`.match(
-            testNamePattern
-          ) === null)
-          ? []
-          : [
-              {
-                filename: specRepoPath(params, "flake"),
-                name: [
-                  `should be flaky 2${expectedFlakeTestNameSuffix}`.substring(
-                    0,
-                    TEST_NAME_ENTRY_MAX_LENGTH
-                  ),
-                ],
-                attempts: [
-                  {
-                    duration_ms: expect.any(Number) as number,
-                    result:
-                      quarantineFlake &&
-                      !failToFetchManifest &&
-                      expectQuarantinedTestsToBeQuarantined
-                        ? "quarantined"
-                        : "fail",
-                  },
-                  ...(expectedFailureRetries > 0
-                    ? [
-                        {
-                          duration_ms: expect.any(Number) as number,
-                          result: "pass",
-                        },
-                      ]
-                    : []),
-                ],
-              } as TestRunRecord,
-            ]),
+        ...[1, 2].flatMap((i) =>
+          skipFlake ||
+          (expectQuarantinedTestsToBeSkipped &&
+            quarantineFlake &&
+            !failToFetchManifest) ||
+          (testNamePattern !== undefined &&
+            `should be flaky ${i}${expectedFlakeTestNameSuffix}`.match(
+              testNamePattern
+            ) === null)
+            ? []
+            : [
+                {
+                  filename: specRepoPath(params, "flake"),
+                  name: [
+                    `should be flaky ${i}${expectedFlakeTestNameSuffix}`.substring(
+                      0,
+                      TEST_NAME_ENTRY_MAX_LENGTH
+                    ),
+                  ],
+                  attempts: [
+                    ...Array(flakeFailCount)
+                      .fill(0)
+                      .map((_, idx) => ({
+                        duration_ms: expect.any(Number) as number,
+                        result:
+                          quarantineFlake &&
+                          !failToFetchManifest &&
+                          expectQuarantinedTestsToBeQuarantined
+                            ? "quarantined"
+                            : "fail",
+                        ...(expectFlakeToBeTestIndependent ||
+                        (expectFlakeFirstAttemptToBeTestIndependent &&
+                          idx === 0)
+                          ? {
+                              failure_reason: "independent",
+                            }
+                          : {}),
+                      })),
+                    ...(expectedFailureRetries > 0
+                      ? [
+                          {
+                            duration_ms: expect.any(Number) as number,
+                            result: "pass",
+                          },
+                        ]
+                      : []),
+                  ],
+                } as TestRunRecord,
+              ]
+        ),
         ...(skipQuarantined ||
         (expectQuarantinedTestsToBeSkipped && !failToFetchManifest) ||
         (testNamePattern !== undefined &&
@@ -266,16 +262,23 @@ const verifyUploadResults = (
               {
                 filename: specRepoPath(params, "mixed"),
                 name: ["mixed", "mixed: should be quarantined"],
-                attempts: Array<TestRunAttemptRecord>(
-                  expectedFailureRetries + 1
-                ).fill({
-                  duration_ms: expect.any(Number) as number,
-                  result:
-                    failToFetchManifest ||
-                    !expectQuarantinedTestsToBeQuarantined
-                      ? "fail"
-                      : "quarantined",
-                }),
+                attempts: Array(expectedFailureRetries + 1)
+                  .fill(0)
+                  .map((_, idx) => ({
+                    duration_ms: expect.any(Number) as number,
+                    result:
+                      failToFetchManifest ||
+                      !expectQuarantinedTestsToBeQuarantined
+                        ? "fail"
+                        : "quarantined",
+                    ...(expectQuarantinedTestsToBeTestIndependent ||
+                    (expectQuarantinedTestsFirstAttemptToBeTestIndependent &&
+                      idx === 0)
+                      ? {
+                          failure_reason: "independent",
+                        }
+                      : {}),
+                  })),
               },
             ] as TestRunRecord[])),
         ...(skipFailures ||
@@ -286,12 +289,18 @@ const verifyUploadResults = (
               {
                 filename: specRepoPath(params, "mixed"),
                 name: ["mixed", "mixed: should fail"],
-                attempts: Array<TestRunAttemptRecord>(
-                  expectedFailureRetries + 1
-                ).fill({
-                  duration_ms: expect.any(Number) as number,
-                  result: "fail",
-                }),
+                attempts: Array(expectedFailureRetries + 1)
+                  .fill(0)
+                  .map((_, idx) => ({
+                    duration_ms: expect.any(Number) as number,
+                    result: "fail",
+                    ...(expectFailuresToBeTestIndependent ||
+                    (expectFailuresFirstAttemptToBeTestIndependent && idx === 0)
+                      ? {
+                          failure_reason: "independent",
+                        }
+                      : {}),
+                  })),
               },
             ] as TestRunRecord[])),
         ...(testNamePattern === undefined ||
@@ -334,16 +343,23 @@ const verifyUploadResults = (
               {
                 filename: specRepoPath(params, "quarantined"),
                 name: ["describe block", "should be quarantined"],
-                attempts: Array<TestRunAttemptRecord>(
-                  expectedFailureRetries + 1
-                ).fill({
-                  duration_ms: expect.any(Number) as number,
-                  result:
-                    failToFetchManifest ||
-                    !expectQuarantinedTestsToBeQuarantined
-                      ? "fail"
-                      : "quarantined",
-                }),
+                attempts: Array(expectedFailureRetries + 1)
+                  .fill(0)
+                  .map((_, idx) => ({
+                    duration_ms: expect.any(Number) as number,
+                    result:
+                      failToFetchManifest ||
+                      !expectQuarantinedTestsToBeQuarantined
+                        ? "fail"
+                        : "quarantined",
+                    ...(expectQuarantinedTestsToBeTestIndependent ||
+                    (expectQuarantinedTestsFirstAttemptToBeTestIndependent &&
+                      idx === 0)
+                      ? {
+                          failure_reason: "independent",
+                        }
+                      : {}),
+                  })),
               },
             ] as TestRunRecord[])),
       ].filter(
@@ -456,8 +472,14 @@ export const runTestCase = async (
   expectedResults: ResultCounts,
   mockBackend: MockBackend
 ): Promise<void> => {
-  const { git, skipFailures, skipFlake, skipQuarantined, testNamePattern } =
-    params;
+  const {
+    flakeFailCount,
+    git,
+    skipFailures,
+    skipFlake,
+    skipQuarantined,
+    testNamePattern,
+  } = params;
 
   const asyncTestError: AsyncTestError = { error: undefined };
 
@@ -474,30 +496,49 @@ export const runTestCase = async (
     }
   );
 
+  const configPath =
+    params.configJs !== null
+      ? (await promisify<string, TmpNameOptions>(tmpName)({
+          prefix: "unflakable-jest-integration-config",
+        })) + ".js"
+      : null;
+  if (configPath !== null) {
+    await fs.writeFile(
+      configPath,
+      Buffer.from(params.configJs as string, "utf8")
+    );
+  }
+
   const integrationInputPath = path.join("..", "integration-input");
-  const configMockParams: CosmiconfigMockParams = {
-    searchFrom: path.resolve(integrationInputPath),
-    searchResult:
-      params.config !== null
-        ? {
-            config: params.config,
-            filepath: path.join(
-              "MOCK_BASE",
-              "packages",
-              "jest-plugin",
-              "test",
-              "integration-input",
-              "package.json"
-            ),
-          }
-        : null,
-  };
+  const configMockParams: CosmiconfigMockParams =
+    configPath !== null
+      ? {
+          expectedSearchFrom: path.resolve(integrationInputPath),
+          pathToLoad: configPath,
+        }
+      : {
+          expectedSearchFrom: path.resolve(integrationInputPath),
+          searchResult:
+            params.config !== null
+              ? {
+                  config: params.config,
+                  filepath: path.join(
+                    "MOCK_BASE",
+                    "packages",
+                    "jest-plugin",
+                    "test",
+                    "integration-input",
+                    "package.json"
+                  ),
+                }
+              : null,
+        };
 
   // We don't directly invoke `jest` because we need to pass `--require` to Node.JS in order to
   // mock cosmiconfig for testing. Instead, we resolve the binary to an absolute path using `yarn
   // bin` and then invoke node directly.
   const jestBin = (
-    await promisify(execFile)("yarn", ["bin", "jest"], {
+    await util.promisify(execFile)("yarn", ["bin", "jest"], {
       cwd: integrationInputPath,
       // yarn.CMD isn't executable without a shell on Windows.
       shell: process.platform === "win32",
@@ -514,13 +555,12 @@ export const runTestCase = async (
     // Uncomment to enable debugger.
     // "--inspect",
     jestBin,
-    // --no-cache disables the cache that stores the past timings, which makes the output
-    // non-deterministic since it gets bolded if it exceeds the expected time.
-    "--no-cache",
     "--reporters",
     "@unflakable/jest-plugin/dist/reporter",
     "--runner",
     "@unflakable/jest-plugin/dist/runner",
+    "--testRunner",
+    "@unflakable/jest-plugin/dist/test-runner",
     ...(skipFailures
       ? ["--testPathIgnorePatterns", "<rootDir>/src/invalid\\.test\\.ts"]
       : []),
@@ -533,7 +573,9 @@ export const runTestCase = async (
     ...params.envVars,
     DEBUG: process.env.TEST_DEBUG,
     // The flaky test needs external state to know when it's being retried so that it can pass.
-    FLAKY_TEST_TEMP: temp.path(),
+    FLAKY_TEST_TEMP: await promisify<string, TmpNameOptions>(tmpName)({
+      prefix: "unflakable-jest-integration-flaky-test",
+    }),
     PATH: process.env.PATH,
     UNFLAKABLE_API_BASE_URL: `http://localhost:${mockBackend.apiServerPort}`,
     [CONFIG_MOCK_ENV_VAR]: JSON.stringify(configMockParams),
@@ -541,6 +583,7 @@ export const runTestCase = async (
     ...(skipFailures ? { SKIP_FAILURES: "1" } : {}),
     ...(skipFlake ? { SKIP_FLAKE: "1" } : {}),
     ...(skipQuarantined ? { SKIP_QUARANTINED: "1" } : {}),
+    FLAKE_FAIL_COUNT: flakeFailCount.toString(),
     // Windows requires these environment variables to be propagated.
     ...(process.platform === "win32"
       ? {

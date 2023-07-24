@@ -29,7 +29,7 @@ const isExternal = (id) =>
  */
 export default [
   {
-    input: ["src/reporter.ts", "src/runner.ts"],
+    input: ["src/reporter.ts", "src/runner.ts", "src/test-runner.ts"],
     output: {
       dir: "dist",
       format: "cjs",
@@ -57,6 +57,7 @@ export default [
       // NB: This should include every exported .d.ts from package.json.
       "dist/reporter.d.ts",
       "dist/runner.d.ts",
+      "dist/test-runner.d.ts",
     ],
     output: {
       dir: ".",

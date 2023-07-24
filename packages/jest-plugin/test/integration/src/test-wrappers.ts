@@ -18,7 +18,9 @@ export const defaultExpectedResults: ResultCounts = {
   failedTests: 2,
   flakyTests: 2,
   passedSuites: 1,
+  passedSuitesWithIndependentFailures: 0,
   passedTests: 2,
+  passedTestsWithIndependentFailures: 0,
   quarantinedSuites: 1,
   quarantinedTests: 2,
   skippedSuites: 0,
@@ -36,6 +38,7 @@ export const integrationTest = (
   void runTestCase(
     {
       config: null,
+      configJs: null,
       expectedApiKey: "MOCK_API_KEY",
       expectedBranch: "MOCK_BRANCH",
       expectedCommit: "MOCK_COMMIT",
@@ -43,13 +46,20 @@ export const integrationTest = (
       expectedFlakeTestNameSuffix: "",
       expectedRepoRelativePathPrefix: "test/integration-input/",
       expectedSuiteId: "MOCK_SUITE_ID",
+      expectFailuresToBeTestIndependent: false,
+      expectFailuresFirstAttemptToBeTestIndependent: false,
+      expectFlakeToBeTestIndependent: false,
+      expectFlakeFirstAttemptToBeTestIndependent: false,
       expectPluginToBeEnabled: true,
       expectResultsToBeUploaded: true,
       expectQuarantinedTestsToBeQuarantined: true,
       expectQuarantinedTestsToBeSkipped: false,
+      expectQuarantinedTestsToBeTestIndependent: false,
+      expectQuarantinedTestsFirstAttemptToBeTestIndependent: false,
       expectSnapshots: false,
       failToFetchManifest: false,
       failToUploadResults: false,
+      flakeFailCount: 1,
       git: {
         abbreviatedRefs: {
           HEAD: "MOCK_BRANCH",

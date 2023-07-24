@@ -3271,10 +3271,14 @@ __metadata:
     deep-equal: ^2.0.5
     escape-string-regexp: ^4.0.0
     exit: ^0.1.2
+    jest: 25.1.0 - 29
+    jest-circus: 25.1.0 - 29
+    jest-environment-node: 25.1.0 - 29
     jest-runner: 25.1.0 - 29
     jest-util: 25.1.0 - 29
     rimraf: ^5.0.1
     rollup: ^3.21.1
+    semver: ^7.5.4
     simple-git: ^3.16.0
     typescript: ^4.9.5
   peerDependencies:
@@ -7341,7 +7345,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-circus@npm:^29.5.0":
+"jest-circus@npm:25.1.0 - 29, jest-circus@npm:^29.5.0":
   version: 29.5.0
   resolution: "jest-circus@npm:29.5.0"
   dependencies:
@@ -7543,6 +7547,7 @@ __metadata:
     "@types/temp": ^0.9.1
     "@unflakable/jest-plugin": "workspace:^"
     "@unflakable/js-api": "workspace:^"
+    es6-promisify: ^7.0.0
     escape-string-regexp: ^4.0.0
     expect: 25.1.0 - 29
     jest: 25.1.0 - 29
@@ -7550,7 +7555,8 @@ __metadata:
     jest-get-type: 25.1.0 - 29
     jest-matcher-utils: 25.1.0 - 29
     mockttp: ^3.7.5
-    temp: ^0.9.4
+    semver: ^7.5.4
+    tmp: ^0.2.1
     typescript: ^4.9.5
     unflakable-test-common: "workspace:^"
   languageName: unknown
@@ -8500,7 +8506,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mkdirp@npm:^0.5.1, mkdirp@npm:^0.5.5":
+"mkdirp@npm:^0.5.5":
   version: 0.5.6
   resolution: "mkdirp@npm:0.5.6"
   dependencies:
@@ -9713,17 +9719,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rimraf@npm:~2.6.2":
-  version: 2.6.3
-  resolution: "rimraf@npm:2.6.3"
-  dependencies:
-    glob: ^7.1.3
-  bin:
-    rimraf: ./bin.js
-  checksum: 3ea587b981a19016297edb96d1ffe48af7e6af69660e3b371dbfc73722a73a0b0e9be5c88089fbeeb866c389c1098e07f64929c7414290504b855f54f901ab10
-  languageName: node
-  linkType: hard
-
 "rollup-plugin-dts@npm:^5.3.0":
   version: 5.3.0
   resolution: "rollup-plugin-dts@npm:5.3.0"
@@ -9878,7 +9873,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:^7.3.2, semver@npm:^7.3.4, semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.5.1, semver@npm:^7.5.3":
+"semver@npm:^7.3.2, semver@npm:^7.3.4, semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.5.1, semver@npm:^7.5.3, semver@npm:^7.5.4":
   version: 7.5.4
   resolution: "semver@npm:7.5.4"
   dependencies:
@@ -10447,16 +10442,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"temp@npm:^0.9.4":
-  version: 0.9.4
-  resolution: "temp@npm:0.9.4"
-  dependencies:
-    mkdirp: ^0.5.1
-    rimraf: ~2.6.2
-  checksum: 8709d4d63278bd309ca0e49e80a268308dea543a949e71acd427b3314cd9417da9a2cc73425dd9c21c6780334dbffd67e05e7be5aaa73e9affe8479afc6f20e3
-  languageName: node
-  linkType: hard
-
 "term-size@npm:2.1.0":
   version: 2.1.0
   resolution: "term-size@npm:2.1.0"
@@ -10542,7 +10527,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tmp@npm:~0.2.1":
+"tmp@npm:^0.2.1, tmp@npm:~0.2.1":
   version: 0.2.1
   resolution: "tmp@npm:0.2.1"
   dependencies:

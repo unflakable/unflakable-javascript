@@ -615,7 +615,7 @@ export const runTestCase = async (
   );
 
   const configMockParams: CosmiconfigMockParams = {
-    searchFrom: path.resolve(projectPath(params)),
+    expectedSearchFrom: path.resolve(projectPath(params)),
     searchResult:
       params.config !== null
         ? {

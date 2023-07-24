@@ -7,5 +7,5 @@
     // that involve lots of Node.JS processes from inside the browser.
     "types": ["jest", "jest-expect-message", "node"]
   },
-  "include": [".eslintrc.js", "jest.config.js", "src"]
+  "include": [".eslintrc.js", "jest.config.js", "src", "unflakable.js"]
 }

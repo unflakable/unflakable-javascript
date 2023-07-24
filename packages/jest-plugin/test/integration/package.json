@@ -9,6 +9,7 @@
     "@types/temp": "^0.9.1",
     "@unflakable/jest-plugin": "workspace:^",
     "@unflakable/js-api": "workspace:^",
+    "es6-promisify": "^7.0.0",
     "escape-string-regexp": "^4.0.0",
     "expect": "25.1.0 - 29",
     "jest": "25.1.0 - 29",
@@ -16,7 +17,8 @@
     "jest-get-type": "25.1.0 - 29",
     "jest-matcher-utils": "25.1.0 - 29",
     "mockttp": "^3.7.5",
-    "temp": "^0.9.4",
+    "semver": "^7.5.4",
+    "tmp": "^0.2.1",
     "typescript": "^4.9.5",
     "unflakable-test-common": "workspace:^"
   },
