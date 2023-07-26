@@ -2,14 +2,22 @@
   "name": "jest-integration",
   "private": true,
   "devDependencies": {
+    "@babel/core": "^7.22.9",
+    "@babel/preset-env": "^7.22.9",
+    "@babel/preset-typescript": "^7.22.5",
+    "@jest/expect-utils": "25.1.0 - 29",
     "@types/temp": "^0.9.1",
     "@unflakable/jest-plugin": "workspace:^",
     "@unflakable/js-api": "workspace:^",
     "escape-string-regexp": "^4.0.0",
+    "expect": "25.1.0 - 29",
     "jest": "25.1.0 - 29",
     "jest-environment-node": "25.1.0 - 29",
+    "jest-get-type": "25.1.0 - 29",
+    "jest-matcher-utils": "25.1.0 - 29",
     "mockttp": "^3.7.5",
     "temp": "^0.9.4",
+    "typescript": "^4.9.5",
     "unflakable-test-common": "workspace:^"
   },
   "scripts": {

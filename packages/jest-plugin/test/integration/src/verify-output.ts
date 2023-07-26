@@ -91,39 +91,48 @@ export const verifyOutput = (
   /* eslint-disable @typescript-eslint/unbound-method */
 
   // Test our VerboseReporter customization.
-  (testNamePattern === undefined ||
-    "should pass".match(testNamePattern) !== null
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(specResultRegexMatch("pass", "src/", "pass.test.ts"))
-  );
-  (testNamePattern === undefined ||
-    "should pass".match(testNamePattern) !== null
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    // This test doesn't have a describe() block, so it's only indented 2 spaces.
-    expect.stringMatching(testResultRegexMatch("pass", "should pass", 2))
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(specResultRegexMatch("pass", "src/", "pass.test.ts")),
+    testNamePattern === undefined ||
+      "should pass".match(testNamePattern) !== null
+      ? 1
+      : 0
   );
 
-  (!skipFailures &&
-    (testNamePattern === undefined ||
-      "describe block should ([escape regex]?.*$ fail".match(
-        testNamePattern
-      ) !== null)
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(specResultRegexMatch("fail", "src/", "fail.test.ts"))
+  expect(stderrLines).toContainEqualTimes(
+    // This test doesn't have a describe() block, so it's only indented 2 spaces.
+    expect.stringMatching(testResultRegexMatch("pass", "should pass", 2)),
+    testNamePattern === undefined ||
+      "should pass".match(testNamePattern) !== null
+      ? 1
+      : 0
   );
-  (!skipFailures &&
-    (testNamePattern === undefined ||
-      "describe block should ([escape regex]?.*$ fail".match(
-        testNamePattern
-      ) !== null)
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(specResultRegexMatch("fail", "src/", "fail.test.ts")),
+    !skipFailures &&
+      (testNamePattern === undefined ||
+        "describe block should ([escape regex]?.*$ fail".match(
+          testNamePattern
+        ) !== null)
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
+  );
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch("fail", "should ([escape regex]?.*$ fail")
-    )
+    ),
+    !skipFailures &&
+      (testNamePattern === undefined ||
+        "describe block should ([escape regex]?.*$ fail".match(
+          testNamePattern
+        ) !== null)
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
 
   const flakyTest1Name = `should be flaky 1${expectedFlakeTestNameSuffix}`;
@@ -134,9 +143,7 @@ export const verifyOutput = (
       !expectQuarantinedTestsToBeSkipped) &&
     (testNamePattern === undefined ||
       flakyTest1Name.match(testNamePattern) !== null);
-  (flakyTest1ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       specResultRegexMatch(
         quarantineFlake &&
@@ -147,12 +154,11 @@ export const verifyOutput = (
         "src/",
         "flake.test.ts"
       )
-    )
+    ),
+    flakyTest1ShouldRun ? 1 : 0
   );
   // This test should fail then pass (though we're not verifying the order here).
-  (flakyTest1ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
         quarantineFlake &&
@@ -163,12 +169,14 @@ export const verifyOutput = (
         flakyTest1Name,
         2
       )
-    )
+    ),
+    flakyTest1ShouldRun ? 1 : 0
   );
-  (expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest1ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("pass", flakyTest1Name, 2))
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(testResultRegexMatch("pass", flakyTest1Name, 2)),
+    expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest1ShouldRun
+      ? 1
+      : 0
   );
 
   const flakyTest2Name = `should be flaky 2${expectedFlakeTestNameSuffix}`;
@@ -179,9 +187,7 @@ export const verifyOutput = (
       !expectQuarantinedTestsToBeSkipped) &&
     (testNamePattern === undefined ||
       flakyTest2Name.match(testNamePattern) !== null);
-  (flakyTest2ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
         quarantineFlake &&
@@ -192,28 +198,25 @@ export const verifyOutput = (
         flakyTest2Name,
         2
       )
-    )
-  );
-  (expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest2ShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("pass", flakyTest2Name, 2))
+    ),
+    flakyTest2ShouldRun ? 1 : 0
   );
 
-  (!skipFailures
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(testResultRegexMatch("pass", flakyTest2Name, 2)),
+    expectPluginToBeEnabled && expectedFailureRetries > 0 && flakyTest2ShouldRun
+      ? 1
+      : 0
+  );
+
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       specResultRegexMatch("fail", "src/", "invalid.test.ts")
-    )
+    ),
+    !skipFailures ? 1 : 0
   );
 
-  (!skipQuarantined &&
-    (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
-    (testNamePattern === undefined ||
-      "describe block should be quarantined".match(testNamePattern) !== null)
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       specResultRegexMatch(
         expectPluginToBeEnabled &&
@@ -225,14 +228,17 @@ export const verifyOutput = (
         "src/",
         "quarantined.test.ts"
       )
-    )
+    ),
+    !skipQuarantined &&
+      (!expectQuarantinedTestsToBeSkipped || failToFetchManifest) &&
+      (testNamePattern === undefined ||
+        "describe block should be quarantined".match(testNamePattern) !== null)
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
-  (!skipQuarantined &&
-    (testNamePattern === undefined ||
-      "describe block should be quarantined".match(testNamePattern) !== null) &&
-    !expectQuarantinedTestsToBeSkipped
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
         expectPluginToBeEnabled &&
@@ -242,7 +248,16 @@ export const verifyOutput = (
           : "fail",
         "should be quarantined"
       )
-    )
+    ),
+    !skipQuarantined &&
+      (testNamePattern === undefined ||
+        "describe block should be quarantined".match(testNamePattern) !==
+          null) &&
+      !expectQuarantinedTestsToBeSkipped
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
 
   const mixedFailTestShouldRun =
@@ -259,18 +274,21 @@ export const verifyOutput = (
     "mixed mixed: should pass".match(testNamePattern) !== null;
 
   // Mixed file containing both a failed test and a quarantined one.
-  (((!expectPluginToBeEnabled ||
-    failToFetchManifest ||
-    !expectQuarantinedTestsToBeQuarantined) &&
-    mixedQuarantinedTestShouldRun) ||
-    mixedFailTestShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(specResultRegexMatch("fail", "src/", "mixed.test.ts"))
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      specResultRegexMatch("fail", "src/", "mixed.test.ts")
+    ),
+    ((!expectPluginToBeEnabled ||
+      failToFetchManifest ||
+      !expectQuarantinedTestsToBeQuarantined) &&
+      mixedQuarantinedTestShouldRun) ||
+      mixedFailTestShouldRun
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
-  (mixedQuarantinedTestShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
+  expect(stderrLines).toContainEqualTimes(
     expect.stringMatching(
       testResultRegexMatch(
         expectPluginToBeEnabled &&
@@ -280,30 +298,32 @@ export const verifyOutput = (
           : "fail",
         "mixed: should be quarantined"
       )
-    )
+    ),
+    mixedQuarantinedTestShouldRun
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
-  (mixedFailTestShouldRun
-    ? expect(stderrLines).toContainEqual
-    : expect(stderrLines).not.toContainEqual)(
-    expect.stringMatching(testResultRegexMatch("fail", "mixed: should fail"))
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(testResultRegexMatch("fail", "mixed: should fail")),
+    mixedFailTestShouldRun
+      ? expectPluginToBeEnabled
+        ? 1 + expectedFailureRetries
+        : 1
+      : 0
   );
 
-  expect(
-    stderrLines.filter((line) =>
-      testResultRegexMatch("pass", "mixed: should pass").test(line as string)
-    )
-  ).toHaveLength(mixedPassTestShouldRun ? 1 : 0);
-
-  // The passed test gets skipped during the retries.
-  if (mixedFailTestShouldRun || mixedQuarantinedTestShouldRun) {
-    expect(
-      stderrLines.filter((line) =>
-        testResultRegexMatch("skipped", "mixed: should pass").test(
-          line as string
-        )
-      )
-    ).toHaveLength(
-      testNamePattern !== undefined &&
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(testResultRegexMatch("pass", "mixed: should pass")),
+    mixedPassTestShouldRun ? 1 : 0
+  );
+  expect(stderrLines).toContainEqualTimes(
+    expect.stringMatching(
+      testResultRegexMatch("skipped", "mixed: should pass")
+    ),
+    mixedFailTestShouldRun || mixedQuarantinedTestShouldRun
+      ? testNamePattern !== undefined &&
         "mixed mixed: should pass".match(testNamePattern) === null &&
         expectPluginToBeEnabled
         ? expectedFailureRetries + 1
@@ -313,8 +333,8 @@ export const verifyOutput = (
           "mixed mixed: should pass".match(testNamePattern) === null
         ? 1
         : 0
-    );
-  }
+      : 0
+  );
 
   // Test our SummaryReporter customization.
   expect(stderrLines).toContain(

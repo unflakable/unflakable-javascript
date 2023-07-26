@@ -18,6 +18,7 @@
     ".eslintrc.js",
     "src",
     "test/.eslintrc.js",
+    "test/babel.config.js",
     "rollup.config.mjs",
     "window.d.ts"
   ]

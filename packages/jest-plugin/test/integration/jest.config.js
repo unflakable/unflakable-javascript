@@ -1,13 +1,14 @@
 // Copyright (c) 2022-2023 Developer Innovations, LLC
 
 module.exports = {
+  setupFilesAfterEnv: ["./src/matchers.ts"],
   testEnvironment: "node",
 
   transform: {
     "^.+\\.[jt]s$": [
       "babel-jest",
       {
-        configFile: "../../../../babel.config.js",
+        configFile: "../babel.config.js",
       },
     ],
   },
