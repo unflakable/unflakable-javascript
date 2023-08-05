@@ -15,7 +15,7 @@ const fetch = (url: string, init?: RequestInit): Promise<Response> => {
   return retry(
     () =>
       nodeFetch(url, init).then((response) => {
-        if (response.status === 503) {
+        if (response.status >= 500 && response.status <= 599) {
           throw new Error(
             `Server returned ${response.status} ${response.statusText}`
           );
