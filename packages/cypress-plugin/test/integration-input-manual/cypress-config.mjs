@@ -6,6 +6,8 @@ import webpackConfig from "./config/webpack.js";
 import { registerSimpleGitMock } from "unflakable-test-common/dist/git.js";
 import { registerCosmiconfigMock } from "unflakable-test-common/dist/config.js";
 import { registerUnflakable } from "@unflakable/cypress-plugin";
+import semverGte from "semver/functions/gte.js";
+import path from "path";
 
 /**
  * @type {Cypress.ConfigOptions}
@@ -42,6 +44,14 @@ export default {
       registerSimpleGitMock();
       tasks.registerTasks(on);
       devtools.openDevToolsOnLaunch(on);
+
+      // Versions prior to 12.17.4 use Webpack 4, which doesn't support the package.json "exports"
+      // field (see https://github.com/cypress-io/cypress/issues/23826). Webpack 5 both supports and
+      // enforces this field, so we have to use a different require path to manually import the
+      // skip-tests module.
+      if (semverGte(config.version, "12.17.4")) {
+        config.supportFile = path.resolve("./cypress/support/e2e-webpack5.js");
+      }
 
       return registerUnflakable(on, config);
     },
