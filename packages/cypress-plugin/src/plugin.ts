@@ -88,6 +88,7 @@ const marshalAttempt = (
     return null;
   }
 
+  // NB: These types are broken in 12.17+ due to https://github.com/cypress-io/cypress/issues/27390.
   return {
     start_time: new Date(attempt.startedAt).toISOString(),
     // NB: there's no explicit end time for each attempt, Cypress does set the duration.
