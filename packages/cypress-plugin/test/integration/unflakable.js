@@ -8,5 +8,6 @@ module.exports = {
     // NB: This requires DEBUG="cypress:server:run" (at a minimum).
     /attempting to close the browser tab(?:(?!resetting server state).)*$/s,
     /Still waiting to connect to Edge, retrying in 1 second.*(?:Error: Test timed out after|All promises were rejected)/s,
+    /There was an error reconnecting to the Chrome DevTools protocol\. Please restart the browser\./,
   ],
 };
