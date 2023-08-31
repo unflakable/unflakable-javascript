@@ -842,211 +842,230 @@ const verifySpecOutputs = (
         : "fail"
       : "skip";
 
-  const hookFailTestFailure = {
-    attempts: Array.from(
+  const verifyHookFailSpecOutput = (errorLines: string[]): void => {
+    const hookFailTestFailure = {
+      attempts: Array.from(
+        {
+          length:
+            skipBeforeHook &&
+            (!skipBeforeEachHook || !skipAfterEachHook || hookAndTestErrors)
+              ? expectedRetries + 1
+              : 1,
+        },
+        (_, idx) => ({
+          titlePath: ["describe block", "should fail due to hook"],
+          attempt:
+            skipBeforeHook &&
+            (!skipBeforeEachHook || !skipAfterEachHook || hookAndTestErrors)
+              ? {
+                  attemptNum: idx + 1,
+                  totalAttempts: expectedRetries + 1,
+                }
+              : undefined,
+          errorLines,
+        })
+      ),
+    };
+    const hookSkipTestFailure = {
+      attempts: [
+        {
+          titlePath: ["describe block", "should be skipped"],
+          attempt: undefined,
+          errorLines: expectExt.arrayContaining([
+            ...(!skipAfterHook
+              ? [
+                  '\x1B[0m\x1B[31m     Error: "after all" hook: after hook with title failed:',
+                ]
+              : []),
+            `> after Error #1`,
+          ]),
+        },
+      ],
+    };
+
+    verifySpecOutput(
+      params,
+      specOutputs,
+      "hook-fail",
       {
-        length:
-          skipBeforeHook &&
-          (!skipBeforeEachHook || !skipAfterEachHook || hookAndTestErrors)
-            ? expectedRetries + 1
-            : 1,
-      },
-      (_, idx) => ({
-        titlePath: ["describe block", "should fail due to hook"],
-        attempt:
-          skipBeforeHook &&
-          (!skipBeforeEachHook || !skipAfterEachHook || hookAndTestErrors)
-            ? {
-                attemptNum: idx + 1,
-                totalAttempts: expectedRetries + 1,
-              }
-            : undefined,
-        errorLines: expectExt.arrayContaining([
-          ...(hookAndTestErrors
+        ...EMPTY_REPORTER_OUTPUT_MATCH,
+        suitesAndTestAttempts: [
+          "\x1B[0m  describe block\x1B[0m",
+          ...(hookFailResult === "pass"
             ? [
                 expectExt.stringMatching(
                   // eslint-disable-next-line no-control-regex
-                  /^(?:\x1B\[0m)?\x1B\[31m {5}Error: test error\x1B\[0m\x1B\[90m$/
+                  new RegExp(
+                    `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should fail due to hook\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
+                  )
                 ),
               ]
-            : []),
-          ...(!skipBeforeHook || !skipBeforeEachHook || !skipAfterEachHook
+            : Array.from(
+                {
+                  length:
+                    skipBeforeHook &&
+                    (!skipBeforeEachHook ||
+                      !skipAfterEachHook ||
+                      hookAndTestErrors)
+                      ? expectedRetries + 1
+                      : 1,
+                },
+                (_, idx) =>
+                  // NB: The default Mocha reporter prints `"<hook-name>" hook for "<test-name>"` as
+                  // a sort of fake test name, but it uses the same test ID as the associated test.
+                  // Dealing with multiple names for a single test leads to inconsistencies and also
+                  // makes it hard to quarantine tests that fail due to hook failures. Instead, we
+                  // just treat hook failures as failures of the associated test, and Cypress's error
+                  // message already mentions the hook that failed. See:
+                  // https://github.com/mochajs/mocha/blob/0be3f78491bbbcdc4dcea660ee7bfd557a225d9c/lib/runner.js#L332
+                  (hookFailResult === "quarantined" &&
+                  (!skipBeforeHook || idx === expectedRetries)
+                    ? `  \x1B[35m  ${FAIL_SYMBOL} should fail due to hook [failed, quarantined]\x1B[39m`
+                    : `  \x1B[31m  ${FAIL_SYMBOL} should fail due to hook\x1B[0m`) +
+                  (skipBeforeHook && expectedRetries > 0
+                    ? `\x1B[33m (attempt ${idx + 1} of ${
+                        expectedRetries + 1
+                      })\x1B[0m`
+                    : "")
+              )),
+          ...(hookSkipResult === "pass"
             ? [
                 expectExt.stringMatching(
+                  // eslint-disable-next-line no-control-regex
                   new RegExp(
-                    `^(?:\x1B\\[0m)?\x1B\\[31m {5}Error: "${
-                      !skipBeforeHook
-                        ? "before all"
-                        : !skipBeforeEachHook
-                        ? "before each"
-                        : "after each"
-                    }" hook failed:$`
+                    `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should be skipped\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
                   )
                 ),
-                expectExt.stringMatching(
-                  new RegExp(
-                    `^ *> ${
-                      !skipBeforeHook
-                        ? "before"
-                        : !skipBeforeEachHook
-                        ? "beforeEach"
-                        : "afterEach"
-                    } Error #1$`
-                  )
-                ),
-                ...(multipleHookErrors
-                  ? [
-                      expectExt.stringMatching(
-                        new RegExp(
-                          `^(?:\x1B\\[31m)?(?: {5})?(?:Error: )?${
-                            !skipBeforeHook
-                              ? "before"
-                              : !skipBeforeEachHook
-                              ? "beforeEach"
-                              : "afterEach"
-                          } Error #2 \\(and Mocha's done\\(\\) called multiple times\\)$`
-                        )
-                      ),
-                    ]
-                  : []),
+              ]
+            : hookSkipResult === "fail"
+            ? [`  \x1B[31m  ${FAIL_SYMBOL} should be skipped\x1B[0m`]
+            : hookSkipResult === "quarantined"
+            ? [
+                `  \x1B[35m  ${FAIL_SYMBOL} should be skipped [failed, quarantined]\x1B[39m`,
               ]
             : []),
-        ]),
-      })
-    ),
-  };
-  const hookSkipTestFailure = {
-    attempts: [
-      {
-        titlePath: ["describe block", "should be skipped"],
-        attempt: undefined,
-        errorLines: expectExt.arrayContaining([
-          ...(!skipAfterHook
-            ? ['\x1B[0m\x1B[31m     Error: "after all" hook failed:']
-            : []),
-          `> after Error #1`,
-        ]),
+        ],
+        passing:
+          (hookFailResult === "pass" ? 1 : 0) +
+          (hookSkipResult === "pass" ? 1 : 0),
+        failures: {
+          count:
+            (hookFailResult === "fail" ? 1 : 0) +
+            (hookSkipResult === "fail" ? 1 : 0),
+          tests: [
+            ...(hookFailResult === "fail" ? [hookFailTestFailure] : []),
+            ...(hookSkipResult === "fail" ? [hookSkipTestFailure] : []),
+          ],
+        },
+        quarantinedFailures: {
+          count:
+            (hookFailResult === "quarantined" ? 1 : 0) +
+            (hookSkipResult === "quarantined" ? 1 : 0),
+          tests: [
+            ...(hookFailResult === "quarantined" ? [hookFailTestFailure] : []),
+            ...(hookSkipResult === "quarantined" ? [hookSkipTestFailure] : []),
+          ],
+        },
+        skipped: {
+          count: hookSkipResult === "skip" ? 1 : 0,
+          tests:
+            hookSkipResult === "skip"
+              ? [
+                  {
+                    titlePath: ["describe block", "should be skipped"],
+                    isQuarantined: quarantineHookSkip,
+                  },
+                ]
+              : [],
+        },
       },
-    ],
-  };
-
-  verifySpecOutput(
-    params,
-    specOutputs,
-    "hook-fail",
-    {
-      ...EMPTY_REPORTER_OUTPUT_MATCH,
-      suitesAndTestAttempts: [
-        "\x1B[0m  describe block\x1B[0m",
-        ...(hookFailResult === "pass"
-          ? [
-              expectExt.stringMatching(
-                // eslint-disable-next-line no-control-regex
-                new RegExp(
-                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should fail due to hook\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
-                )
-              ),
-            ]
-          : Array.from(
-              {
-                length:
-                  skipBeforeHook &&
-                  (!skipBeforeEachHook ||
-                    !skipAfterEachHook ||
-                    hookAndTestErrors)
-                    ? expectedRetries + 1
-                    : 1,
-              },
-              (_, idx) =>
-                // NB: The default Mocha reporter prints `"<hook-name>" hook for "<test-name>"` as a
-                // sort of fake test name, but it uses the same test ID as the associated test.
-                // Dealing with multiple names for a single test leads to inconsistencies and also
-                // makes it hard to quarantine tests that fail due to hook failures. Instead, we just
-                // treat hook failures as failures of the associated test, and Cypress's error
-                // message already mentions the hook that failed. See:
-                // https://github.com/mochajs/mocha/blob/0be3f78491bbbcdc4dcea660ee7bfd557a225d9c/lib/runner.js#L332
-                (hookFailResult === "quarantined" &&
-                (!skipBeforeHook || idx === expectedRetries)
-                  ? `  \x1B[35m  ${FAIL_SYMBOL} should fail due to hook [failed, quarantined]\x1B[39m`
-                  : `  \x1B[31m  ${FAIL_SYMBOL} should fail due to hook\x1B[0m`) +
-                (skipBeforeHook && expectedRetries > 0
-                  ? `\x1B[33m (attempt ${idx + 1} of ${
-                      expectedRetries + 1
-                    })\x1B[0m`
-                  : "")
-            )),
-        ...(hookSkipResult === "pass"
-          ? [
-              expectExt.stringMatching(
-                // eslint-disable-next-line no-control-regex
-                new RegExp(
-                  `^ {2}\\x1B\\[32m {2}${PASS_SYMBOL}\\x1B\\[0m\\x1B\\[90m should be skipped\\x1B\\[0m\\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\\x1B\\[0m$`
-                )
-              ),
-            ]
-          : hookSkipResult === "fail"
-          ? [`  \x1B[31m  ${FAIL_SYMBOL} should be skipped\x1B[0m`]
-          : hookSkipResult === "quarantined"
-          ? [
-              `  \x1B[35m  ${FAIL_SYMBOL} should be skipped [failed, quarantined]\x1B[39m`,
-            ]
-          : []),
-      ],
-      passing:
-        (hookFailResult === "pass" ? 1 : 0) +
-        (hookSkipResult === "pass" ? 1 : 0),
-      failures: {
-        count:
+      {
+        ...EMPTY_RESULTS,
+        color:
+          hookFailResult !== "fail" &&
+          hookSkipResult !== "fail" &&
+          (hookSkipResult !== "skip" || quarantineHookSkip)
+            ? "pass"
+            : "fail",
+        numTests: 2,
+        numFailing:
           (hookFailResult === "fail" ? 1 : 0) +
           (hookSkipResult === "fail" ? 1 : 0),
-        tests: [
-          ...(hookFailResult === "fail" ? [hookFailTestFailure] : []),
-          ...(hookSkipResult === "fail" ? [hookSkipTestFailure] : []),
-        ],
-      },
-      quarantinedFailures: {
-        count:
+        numPassing:
+          (hookFailResult === "pass" ? 1 : 0) +
+          (hookSkipResult === "pass" ? 1 : 0),
+        numQuarantined:
           (hookFailResult === "quarantined" ? 1 : 0) +
           (hookSkipResult === "quarantined" ? 1 : 0),
-        tests: [
-          ...(hookFailResult === "quarantined" ? [hookFailTestFailure] : []),
-          ...(hookSkipResult === "quarantined" ? [hookSkipTestFailure] : []),
-        ],
-      },
-      skipped: {
-        count: hookSkipResult === "skip" ? 1 : 0,
-        tests:
-          hookSkipResult === "skip"
-            ? [
-                {
-                  titlePath: ["describe block", "should be skipped"],
-                  isQuarantined: quarantineHookSkip,
-                },
-              ]
-            : [],
-      },
-    },
-    {
-      ...EMPTY_RESULTS,
-      color:
-        hookFailResult !== "fail" &&
-        hookSkipResult !== "fail" &&
-        (hookSkipResult !== "skip" || quarantineHookSkip)
-          ? "pass"
-          : "fail",
-      numTests: 2,
-      numFailing:
-        (hookFailResult === "fail" ? 1 : 0) +
-        (hookSkipResult === "fail" ? 1 : 0),
-      numPassing:
-        (hookFailResult === "pass" ? 1 : 0) +
-        (hookSkipResult === "pass" ? 1 : 0),
-      numQuarantined:
-        (hookFailResult === "quarantined" ? 1 : 0) +
-        (hookSkipResult === "quarantined" ? 1 : 0),
-      numSkipped: hookSkipResult === "skip" ? 1 : 0,
-    }
+        numSkipped: hookSkipResult === "skip" ? 1 : 0,
+      }
+    );
+  };
+
+  verifyHookFailSpecOutput(
+    expectExt.arrayContaining([
+      ...(hookAndTestErrors
+        ? [
+            expectExt.stringMatching(
+              // eslint-disable-next-line no-control-regex
+              /^(?:\x1B\[0m)?\x1B\[31m {5}Error: test error\x1B\[0m\x1B\[90m$/
+            ),
+          ]
+        : []),
+      ...(!skipBeforeHook || !skipBeforeEachHook || !skipAfterEachHook
+        ? [
+            expectExt.stringMatching(
+              new RegExp(
+                `^(?:\x1B\\[0m)?\x1B\\[31m {5}Error: ${
+                  !skipBeforeHook
+                    ? '"before all" hook: before hook with title'
+                    : !skipBeforeEachHook
+                    ? '"before each" hook: beforeEach hook with title'
+                    : '"after each" hook: afterEach hook with title'
+                } failed:$`
+              )
+            ),
+            expectExt.stringMatching(
+              new RegExp(
+                `^ *> ${
+                  !skipBeforeHook
+                    ? "before"
+                    : !skipBeforeEachHook
+                    ? "beforeEach"
+                    : "afterEach"
+                } Error #1$`
+              )
+            ),
+            ...(multipleHookErrors
+              ? [
+                  expectExt.stringMatching(
+                    new RegExp(
+                      `^(?:\x1B\\[31m)?(?: {5})?(?:Error: )?${
+                        !skipBeforeHook
+                          ? "before"
+                          : !skipBeforeEachHook
+                          ? "beforeEach"
+                          : "afterEach"
+                      } Error #2 \\(and Mocha's done\\(\\) called multiple times\\)$`
+                    )
+                  ),
+                ]
+              : []),
+          ]
+        : []),
+    ])
   );
+
+  if (!skipBeforeHook || !skipBeforeEachHook || !skipAfterEachHook) {
+    verifyHookFailSpecOutput(
+      // The error should contain the hook name and not the plain test name. This should catch bugs
+      // in which we fail to merge errors originating in hooks when we both onTestFail() and either
+      // onTestRetry()/onTestEnd() are called.
+      expectExt.not.arrayContaining([
+        expectExt.stringMatching("should fail due to hook failed:"),
+      ])
+    );
+  }
 
   verifySpecOutput(
     params,

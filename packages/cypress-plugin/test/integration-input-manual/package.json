@@ -9,7 +9,7 @@
     "@types/react": "^18.2.7",
     "@types/react-dom": "^18.2.4",
     "@unflakable/cypress-plugin": "workspace:^",
-    "cypress": "10 - 12",
+    "cypress": "11.2 - 13",
     "cypress-multi-reporters": "^1.6.3",
     "mocha": "=7.0.1",
     "mocha-junit-reporter": "^2.2.0",
