@@ -127,6 +127,8 @@ jobs:
           - "12.15"
           - "12.16"
           - "12.17"
+          - "13.0"
+          - "13.1"
     steps:
       - uses: actions/checkout@v4
 
@@ -169,7 +171,7 @@ jobs:
         env:
           CYPRESS_INSTALL_BINARY: "0"
         run: |
-          yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
+          yarn set resolution "cypress@npm:11.2 - 13" ${{ matrix.cypress }}
           grep --after-context=1 "^\".*cypress.*" yarn.lock
 
       - name: Install Cypress binary
@@ -232,6 +234,8 @@ jobs:
           - "12.15"
           - "12.16"
           - "12.17"
+          - "13.0"
+          - "13.1"
     steps:
       - uses: actions/checkout@v4
 
@@ -278,7 +282,7 @@ jobs:
         env:
           CYPRESS_INSTALL_BINARY: "0"
         run: |
-          yarn set resolution "cypress@npm:10 - 12" ${{ matrix.cypress }}
+          yarn set resolution "cypress@npm:11.2 - 13" ${{ matrix.cypress }}
           Select-String -Pattern '^".*cypress.*' -Path yarn.lock -Context 0,1
 
       - name: Install Cypress binary

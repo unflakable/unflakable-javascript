@@ -20,8 +20,6 @@ declare namespace Mocha {
 
   // Additional fields that Cypress adds to Mocha.Test.
   export type CypressTestProps = {
-    id: string;
-    order: number;
     wallClockStartedAt: string;
   };
 

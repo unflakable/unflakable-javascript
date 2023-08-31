@@ -90,7 +90,10 @@ const marshalAttempt = (
 
   // NB: These types are broken in 12.17+ due to https://github.com/cypress-io/cypress/issues/27390.
   return {
-    start_time: new Date(attempt.startedAt).toISOString(),
+    start_time:
+      attempt.startedAt !== undefined
+        ? new Date(attempt.startedAt).toISOString()
+        : undefined,
     // NB: there's no explicit end time for each attempt, Cypress does set the duration.
     duration_ms: attempt.duration,
     result,
@@ -100,9 +103,7 @@ const marshalAttempt = (
 // Adapted from:
 // https://github.com/cypress-io/cypress/blob/19e091d0bc2d1f4e6a6e62d2f81ea6a2f60d531a/packages/server/lib/util/print-run.ts#L397C15-L440
 const displayResults = (
-  spec: Cypress.Spec & {
-    relativeToCommonRoot: string;
-  },
+  relativeToCommonRoot: string,
   results: CypressCommandLine.RunResult
 ): void => {
   const reporterStats = reporterStatsOrDefault(results);
@@ -154,7 +155,7 @@ const displayResults = (
       ["Duration:", humanTime.long(results.stats.wallClockDuration ?? 0)],
       [
         "Spec Ran:",
-        formatPath(spec.relativeToCommonRoot, getWidth(table, 1), resultColor),
+        formatPath(relativeToCommonRoot, getWidth(table, 1), resultColor),
       ],
     ] as (HorizontalTableRow | undefined)[]
   )
@@ -223,136 +224,17 @@ const formatFooterSummary = (
   ];
 };
 
-// Adapted from:
-// https://github.com/cypress-io/cypress/blob/19e091d0bc2d1f4e6a6e62d2f81ea6a2f60d531a/packages/server/lib/util/print-run.ts#L299-L395
-const renderSummaryTable = (
-  results: CypressCommandLine.CypressRunResult
-): void => {
-  const runs = results.runs ?? [];
-
-  console.log("");
-
-  terminal.divider("=");
-
-  console.log("");
-
-  terminal.header("Run Finished", {
-    color: ["reset"],
-  });
-
-  if (runs.length > 0) {
-    const colAligns: HorizontalAlignment[] = [
-      "left",
-      "left",
-      "right",
-      "right",
-      "right",
-      "right",
-      "right",
-      "right",
-      "right",
-      "right",
-    ];
-    const colWidths = [3, 29, 11, 7, 9, 9, 7, 7, 9, 9];
-
-    const table1 = terminal.table({
-      colAligns,
-      colWidths,
-      type: "noBorder",
-      head: [
-        "",
-        gray("Spec"),
-        "",
-        gray("Tests"),
-        gray("Passing"),
-        gray("Failing"),
-        gray("Flaky"),
-        gray("Quar."),
-        gray("Pending"),
-        gray("Skipped"),
-      ],
-    });
-
-    const table2 = terminal.table({
-      colAligns,
-      colWidths,
-      type: "border",
-    });
-
-    const table3 = terminal.table({
-      colAligns,
-      colWidths,
-      type: "noBorder",
-      head: formatFooterSummary(results),
-    });
-
-    runs.forEach((run): number => {
-      const reporterStats = reporterStatsOrDefault(run);
-
-      const ms = duration.format(run.stats.wallClockDuration ?? 0);
-
-      const formattedSpec = formatPath(
-        run.spec.relativeToCommonRoot,
-        getWidth(table2, 1)
-      );
-
-      if (run.skippedSpec) {
-        return table2.push([
-          "-",
-          formattedSpec,
-          color("SKIPPED", "gray"),
-          "-",
-          "-",
-          "-",
-          "-",
-          "-",
-          "-",
-          "-",
-        ]);
-      }
-
-      return table2.push([
-        formatSymbolSummary(
-          Math.max(
-            reporterStats.failures + (reporterStats.unquarantinedFlakes ?? 0),
-            (reporterStats.unquarantinedSkipped ?? 0) > 0 ? 1 : 0
-          )
-        ),
-        formattedSpec,
-        color(ms, "gray"),
-        colorIf(run.stats.tests, "reset"),
-        colorIf(reporterStats.passes, "green"),
-        colorIf(reporterStats.failures, "red"),
-        colorIf(reporterStats.unquarantinedFlakes ?? 0, "yellow"),
-        colorIf(
-          (reporterStats.quarantinedFailures ?? 0) +
-            (reporterStats.quarantinedFlakes ?? 0) +
-            (reporterStats.quarantinedPending ?? 0),
-          "magenta"
-        ),
-        colorIf(reporterStats.unquarantinedPending ?? 0, "cyan"),
-        colorIf(
-          (reporterStats.quarantinedSkipped ?? 0) +
-            (reporterStats.unquarantinedSkipped ?? 0),
-          "blue"
-        ),
-      ]);
-    });
-
-    console.log("");
-    console.log("");
-    console.log(terminal.renderTables(table1, table2, table3));
-    console.log("");
-  }
-};
-
 export class UnflakableCypressPlugin {
   private readonly apiKey: string;
   private readonly manifest: TestSuiteManifest | null;
   private readonly repoRoot: string;
   private readonly unflakableConfig: UnflakableConfig;
 
-  private specs: Cypress.Spec[] | null = null;
+  private specs:
+    | (Cypress.Spec & {
+        relativeToCommonRoot: string;
+      })[]
+    | null = null;
   private specIndex = 0;
   private supportFilePath: string | null = null;
 
@@ -545,7 +427,12 @@ ${
     const debug = baseDebug.extend("beforeRun");
     debug("Received beforeRun event");
 
-    this.specs = specs ?? [];
+    this.specs =
+      (specs as
+        | (Cypress.Spec & {
+            relativeToCommonRoot: string;
+          })[]
+        | undefined) ?? [];
     displayRunStarting({
       // Some of these public types seem wrong since Cypress passes the same values to the
       // `before:run` event as it does to displayRunStarting():
@@ -585,8 +472,8 @@ ${
       });
     }
 
-    if (results.status === "finished") {
-      renderSummaryTable(results);
+    if (results.status !== "failed") {
+      this.renderSummaryTable(results);
 
       const testRuns = results.runs.flatMap(({ spec, tests }) =>
         // Contrary to Cypress's TypeScript typing, tests can be `null` when the specs fail to
@@ -657,12 +544,136 @@ ${
 
     // This can be set by Cypress Cloud.
     if (!results.skippedSpec) {
-      displayResults(
-        spec as Cypress.Spec & {
-          relativeToCommonRoot: string;
-        },
-        results
-      );
+      displayResults(this.relativeToCommonRoot(spec), results);
+    }
+  };
+
+  private relativeToCommonRoot = (spec: Cypress.Spec): string =>
+    (this.specs ?? []).find((fullSpec) => fullSpec.absolute === spec.absolute)
+      ?.relativeToCommonRoot ?? spec.name;
+
+  // Adapted from:
+  // https://github.com/cypress-io/cypress/blob/19e091d0bc2d1f4e6a6e62d2f81ea6a2f60d531a/packages/server/lib/util/print-run.ts#L299-L395
+  private renderSummaryTable = (
+    results: CypressCommandLine.CypressRunResult
+  ): void => {
+    const runs = results.runs ?? [];
+
+    console.log("");
+
+    terminal.divider("=");
+
+    console.log("");
+
+    terminal.header("Run Finished", {
+      color: ["reset"],
+    });
+
+    if (runs.length > 0) {
+      const colAligns: HorizontalAlignment[] = [
+        "left",
+        "left",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right",
+      ];
+      const colWidths = [3, 29, 11, 7, 9, 9, 7, 7, 9, 9];
+
+      const table1 = terminal.table({
+        colAligns,
+        colWidths,
+        type: "noBorder",
+        head: [
+          "",
+          gray("Spec"),
+          "",
+          gray("Tests"),
+          gray("Passing"),
+          gray("Failing"),
+          gray("Flaky"),
+          gray("Quar."),
+          gray("Pending"),
+          gray("Skipped"),
+        ],
+      });
+
+      const table2 = terminal.table({
+        colAligns,
+        colWidths,
+        type: "border",
+      });
+
+      const table3 = terminal.table({
+        colAligns,
+        colWidths,
+        type: "noBorder",
+        head: formatFooterSummary(results),
+      });
+
+      runs.forEach((run): number => {
+        const reporterStats = reporterStatsOrDefault(run);
+
+        const ms = duration.format(
+          run.stats.wallClockDuration ?? run.stats.duration ?? 0
+        );
+
+        const formattedSpec = formatPath(
+          this.relativeToCommonRoot(run.spec),
+          getWidth(table2, 1)
+        );
+
+        if (run.skippedSpec) {
+          return table2.push([
+            "-",
+            formattedSpec,
+            color("SKIPPED", "gray"),
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+          ]);
+        }
+
+        return table2.push([
+          formatSymbolSummary(
+            Math.max(
+              reporterStats.failures + (reporterStats.unquarantinedFlakes ?? 0),
+              (reporterStats.unquarantinedSkipped ?? 0) > 0 ? 1 : 0
+            )
+          ),
+          formattedSpec,
+          color(ms, "gray"),
+          colorIf(run.stats.tests, "reset"),
+          colorIf(reporterStats.passes, "green"),
+          colorIf(reporterStats.failures, "red"),
+          colorIf(reporterStats.unquarantinedFlakes ?? 0, "yellow"),
+          colorIf(
+            (reporterStats.quarantinedFailures ?? 0) +
+              (reporterStats.quarantinedFlakes ?? 0) +
+              (reporterStats.quarantinedPending ?? 0),
+            "magenta"
+          ),
+          colorIf(reporterStats.unquarantinedPending ?? 0, "cyan"),
+          colorIf(
+            (reporterStats.quarantinedSkipped ?? 0) +
+              (reporterStats.unquarantinedSkipped ?? 0),
+            "blue"
+          ),
+        ]);
+      });
+
+      console.log("");
+      console.log("");
+      console.log(terminal.renderTables(table1, table2, table3));
+      console.log("");
     }
   };
 }

@@ -3,7 +3,7 @@
 import { integrationTest, integrationTestSuite } from "./test-wrappers";
 
 integrationTestSuite((mockBackend) => {
-  it("run should succeed when before() fails both tests are quarantined", (done) =>
+  it("run should succeed when before() fails and both tests are quarantined", (done) =>
     integrationTest(
       {
         params: {
@@ -27,7 +27,7 @@ integrationTestSuite((mockBackend) => {
       done
     ));
 
-  it("run should succeed when beforeEach() fails both tests are quarantined", (done) =>
+  it("run should succeed when beforeEach() fails and both tests are quarantined", (done) =>
     integrationTest(
       {
         params: {
@@ -53,7 +53,7 @@ integrationTestSuite((mockBackend) => {
       done
     ));
 
-  it("run should succeed when afterEach() fails both tests are quarantined", (done) =>
+  it("run should succeed when afterEach() fails and both tests are quarantined", (done) =>
     integrationTest(
       {
         params: {

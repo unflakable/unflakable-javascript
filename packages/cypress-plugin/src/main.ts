@@ -393,7 +393,7 @@ const main = async (): Promise<void> => {
         }
       : runOptions
   );
-  if (results.status === "finished") {
+  if (results.status !== "failed") {
     exitDefault(results, unflakableConfig);
   } else {
     exitFailure(results);

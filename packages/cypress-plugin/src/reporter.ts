@@ -22,6 +22,7 @@ import deepEqual from "deep-equal";
 import { printWarning } from "./utils";
 import { ReporterStats } from "./reporter-common";
 import styles, { ForegroundColor } from "ansi-styles";
+import escapeStringRegexp from "escape-string-regexp";
 
 const debug = _debug("unflakable:reporter");
 
@@ -80,6 +81,30 @@ const stringifyDiffObjs = (err: Mocha.Error): void => {
   }
 };
 
+// Mocha test fail events for hook failures have the hook name in the title. However, we need to
+// extract the title of the affected test, which we do using a regex below.
+const extractTestTitleFromFailedHookTitle = (
+  failedHookTitle: string,
+  currentHookName: string
+): string => {
+  // Mocha concatenates the hook name to the test title here:
+  // https://github.com/mochajs/mocha/blob/0be3f78491bbbcdc4dcea660ee7bfd557a225d9c/lib/runner.js#L331
+  const matches = RegExp(
+    `^${escapeStringRegexp(currentHookName)} for "(.*)"$`
+  ).exec(failedHookTitle);
+  if (matches !== null) {
+    debug(
+      `extracted test title "${matches[1]}" from failed hook title "${failedHookTitle}"`
+    );
+    return matches[1];
+  } else {
+    debug(
+      `could not extract test title from failed hook title "${failedHookTitle}" with current hook name "${currentHookName}"`
+    );
+    return failedHookTitle;
+  }
+};
+
 const mergeTestFailure = (
   src: { err?: Mocha.Error },
   dest: { err?: Mocha.Error }
@@ -93,14 +118,33 @@ const mergeTestFailure = (
     // We already recorded this test failure, but it has multiple exceptions, so we need to track
     // those.
     if (dest.err !== undefined) {
-      dest.err.multiple = [
-        src.err,
-        ...(src.err.multiple ?? []),
-        ...(dest.err.multiple ?? []),
-      ];
+      if (!(dest.err.multiple ?? []).some((err) => deepEqual(src.err, err))) {
+        dest.err.multiple = [
+          src.err,
+          ...(src.err.multiple ?? []),
+          ...(dest.err.multiple ?? []),
+        ];
+      }
     } else {
       dest.err = src.err;
     }
+  }
+};
+
+const addHookNameToError = (hookName: string, err: Mocha.Error): void => {
+  const hookMsg = `${hookName} failed:\n`;
+  if (err.message !== undefined) {
+    // This is consumed by formatErrorMsgAndStack().
+    if (err.stack !== undefined) {
+      const indexIntoStackOrMsg = err.stack.indexOf(err.message);
+      if (indexIntoStackOrMsg !== -1) {
+        err.stack =
+          err.stack.slice(0, indexIntoStackOrMsg) +
+          hookMsg +
+          err.stack.slice(indexIntoStackOrMsg);
+      }
+    }
+    err.message = hookMsg + err.message;
   }
 };
 
@@ -108,26 +152,10 @@ const mergeTestFailure = (
 // test.
 const pushOrMergeFailedTest = <T extends CypressTest | MochaEventTest>(
   failedTests: TestWithError<T>[],
-  test: T & { hookName?: string }
+  test: T,
+  titlePath: TestTitle
 ): boolean => {
   const currentRetry = currentTestRetry(test);
-
-  if (test.err !== undefined && test.hookName !== undefined) {
-    const hookMsg = `"${test.hookName}" hook failed:\n`;
-    if (test.err.message !== undefined) {
-      // This is consumed by formatErrorMsgAndStack().
-      if (test.err.stack !== undefined) {
-        const indexIntoStackOrMsg = test.err.stack.indexOf(test.err.message);
-        if (indexIntoStackOrMsg !== -1) {
-          test.err.stack =
-            test.err.stack.slice(0, indexIntoStackOrMsg) +
-            hookMsg +
-            test.err.stack.slice(indexIntoStackOrMsg);
-        }
-      }
-      test.err.message = hookMsg + test.err.message;
-    }
-  }
 
   // NB: There's an edge case involving tests that have multiple errors. Ordinarily, onTestFail()
   // doesn't get called until the final retry fails. However, if multiple errors are thrown by
@@ -139,14 +167,14 @@ const pushOrMergeFailedTest = <T extends CypressTest | MochaEventTest>(
     // guaranteed (especially if tests run in parallel) due to the async nature of Cypress.
     .find(
       (existingTestFailure) =>
-        existingTestFailure.test.id === test.id &&
+        deepEqual(existingTestFailure.titlePath, titlePath) &&
         currentTestRetry(existingTestFailure.test) === currentRetry
     );
 
   if (existingTestFailure === undefined) {
     // At this point, it's too early to determine whether the test is a flake or a failure, which
     // depends on whether any of the retries will pass.
-    failedTests.push({ test, err: test.err });
+    failedTests.push({ test, titlePath, err: test.err });
     return true;
   } else {
     mergeTestFailure(test, existingTestFailure);
@@ -260,16 +288,17 @@ const reportFailedAttempt = ({
   );
 };
 
+type TestTitle = string[];
+
 // Cypress mutates the runnable in response to Mocha events, which can overwrite our modifications
 // to the test's `err` field (i.e., its `multiple` field). We store a separate reference to the
 // error to prevent this.
 type TestWithError<T extends CypressTest | MochaEventTest> = {
   // Omit the `err` field from the type so that we don't accidentally use it.
   test: Omit<T, "err">;
+  titlePath: TestTitle;
   err: Mocha.Error | undefined;
 };
-
-type TestTitle = string[];
 
 // This reporter is a quarantine- and retry-aware TypeScript adaptation of Mocha's spec reporter:
 // https://github.com/mochajs/mocha/blob/ccee5f1b37bb405b81814daa35c63801cad20b4d/lib/reporters/spec.js
@@ -280,7 +309,9 @@ export default class UnflakableSpecReporter extends reporters.Base {
   private readonly manifest: TestSuiteManifest | null;
   private readonly posixTestFilename: string | null;
 
-  private indents = 0;
+  private currentSuiteTitles: string[] = [];
+  private currentHookName: string | null = null;
+  private lastHookName: string | null = null;
 
   // Used for computing the set of skipped tests from each suite.
   private nonSkippedTestJsonTitlePaths: Set<string> = new Set();
@@ -337,6 +368,10 @@ export default class UnflakableSpecReporter extends reporters.Base {
     runner.on(Runner.constants.EVENT_SUITE_BEGIN, this.onSuiteBegin.bind(this));
     runner.on(Runner.constants.EVENT_SUITE_END, this.onSuiteEnd.bind(this));
 
+    runner.on(Runner.constants.EVENT_HOOK_BEGIN, this.onHookBegin.bind(this));
+    runner.on(Runner.constants.EVENT_HOOK_END, this.onHookEnd.bind(this));
+
+    runner.on(Runner.constants.EVENT_TEST_BEGIN, this.onTestBegin.bind(this));
     runner.on(Runner.constants.EVENT_TEST_FAIL, this.onTestFail.bind(this));
     runner.on(
       Runner.constants.EVENT_TEST_PENDING,
@@ -359,7 +394,8 @@ export default class UnflakableSpecReporter extends reporters.Base {
       ? styles.color[c].open + str + styles.color[c].close
       : str;
 
-  private indent = (): string => Array(this.indents).join("  ");
+  private indent = (): string =>
+    Array(this.currentSuiteTitles.length).join("  ");
 
   private isQuarantined = (titlePath: TestTitle): boolean => {
     // For ignore_failure (and skip_tests if somehow the quarantined tests still executed), ignore
@@ -399,15 +435,16 @@ export default class UnflakableSpecReporter extends reporters.Base {
       // in its parent suite to find the original test title.
       const suiteTest =
         (lastTestAttempt.test.parent?.tests as CypressTest[] | undefined)?.find(
-          (suiteTest) => suiteTest.id === lastTestAttempt.test.id
+          (suiteTest) =>
+            deepEqual(suiteTest.titlePath(), lastTestAttempt.titlePath)
         ) ?? lastTestAttempt.test;
 
       const testTitle = formatFailedTestTitle(suiteTest.titlePath());
 
       const failedAttempts: FailedTestAttempt[] = [
         ...this.retriedTests
-          .filter(
-            (retriedTest) => retriedTest.test.id === lastTestAttempt.test.id
+          .filter((retriedTest) =>
+            deepEqual(retriedTest.titlePath, lastTestAttempt.titlePath)
           )
           .map((retriedTest) => ({
             currentRetry: currentTestRetry(retriedTest.test),
@@ -661,7 +698,7 @@ export default class UnflakableSpecReporter extends reporters.Base {
       this.specTests.push(test.titlePath());
     });
 
-    this.indents++;
+    this.currentSuiteTitles.push(suite.title);
     console.log(reporters.Base.color("suite", this.indent() + suite.title));
   };
 
@@ -672,8 +709,8 @@ export default class UnflakableSpecReporter extends reporters.Base {
       }\` root=${String(suite.root)}`
     );
 
-    this.indents--;
-    if (this.indents === 1) {
+    this.currentSuiteTitles.pop();
+    if (this.currentSuiteTitles.length === 1) {
       console.log();
     }
   };
@@ -686,6 +723,7 @@ export default class UnflakableSpecReporter extends reporters.Base {
   //     test.currentRetry() < test.retries(). In this case, onTestFail() will get called with the
   //     second exception, followed by onTestEnd() getting called with the first exception. After
   //     some testing, it doesn't seem like there can ever be more than two exceptions.
+  // For hook failures, this gets called with this.currentHookName still set.
   private onTestFail = (test: CypressTest, _err?: Mocha.Error): void => {
     debug(
       `onTestFail [${test.state ?? "no state"}] ${test.title}: ${
@@ -693,23 +731,30 @@ export default class UnflakableSpecReporter extends reporters.Base {
       }`
     );
 
-    // If the failure occurred in a before/after hook, `test`'s name includes the name of the hook.
-    // However, we want quarantine to be based on the test itself, so we look up the test in its
-    // parent suite to find the original test title.
-    const suiteTest =
-      (test.parent?.tests as CypressTest[] | undefined)?.find(
-        (suiteTest) => suiteTest.id === test.id
-      ) ?? test;
+    if (test.err !== undefined && this.currentHookName !== null) {
+      addHookNameToError(this.currentHookName, test.err);
+    }
+
+    const titlePath =
+      this.currentHookName !== null
+        ? [
+            ...test.titlePath().slice(0, -1),
+            extractTestTitleFromFailedHookTitle(
+              test.title,
+              this.currentHookName
+            ),
+          ]
+        : test.titlePath();
 
     // Case (2) above, or case (1) when Cypress won't retry due to a before/after all hook failing.
     // Unfortunately, we can't determine at this point whether the test will be retried or not, so
     // we assume that it will, and then handle the edge case in onTestEnd().
     if (currentTestRetry(test) < testRetries(test)) {
-      this.retriedTests.push({ test, err: test.err });
-    } else if (this.isQuarantined(suiteTest.titlePath())) {
-      pushOrMergeFailedTest(this.quarantinedFailures, test);
+      pushOrMergeFailedTest(this.retriedTests, test, titlePath);
+    } else if (this.isQuarantined(titlePath)) {
+      pushOrMergeFailedTest(this.quarantinedFailures, test, titlePath);
     } else {
-      pushOrMergeFailedTest(this.unquarantinedFailures, test);
+      pushOrMergeFailedTest(this.unquarantinedFailures, test, titlePath);
     }
 
     // NB: We don't print any output in this function since, for non-final-attempts, it only gets
@@ -723,9 +768,17 @@ export default class UnflakableSpecReporter extends reporters.Base {
     const isFlaky = currentRetry > 0;
     const isQuarantined = isFlaky && this.isQuarantined(test.titlePath());
     if (isFlaky && isQuarantined) {
-      this.quarantinedFlakes.push({ test, err: test.err });
+      this.quarantinedFlakes.push({
+        test,
+        titlePath: test.titlePath(),
+        err: test.err,
+      });
     } else if (isFlaky) {
-      this.unquarantinedFlakes.push({ test, err: test.err });
+      this.unquarantinedFlakes.push({
+        test,
+        titlePath: test.titlePath(),
+        err: test.err,
+      });
     }
 
     // Cypress overrides the behavior of the Mocha spec reporter (see
@@ -759,9 +812,9 @@ export default class UnflakableSpecReporter extends reporters.Base {
     const isQuarantined = this.isQuarantined(test.titlePath());
 
     if (isQuarantined) {
-      pushOrMergeFailedTest(this.quarantinedFailures, test);
+      pushOrMergeFailedTest(this.quarantinedFailures, test, test.titlePath());
     } else {
-      pushOrMergeFailedTest(this.unquarantinedFailures, test);
+      pushOrMergeFailedTest(this.unquarantinedFailures, test, test.titlePath());
     }
 
     const quarantinedFmt = `  ${reporters.Base.symbols.err} ${test.title} [failed, quarantined]`;
@@ -780,9 +833,45 @@ export default class UnflakableSpecReporter extends reporters.Base {
     );
   };
 
+  private onHookBegin = (hook: CypressTest & { hookName: string }): void => {
+    debug(
+      `onHookBegin [${hook.state ?? "no state"}] ${hook.title}: ${
+        hook.err?.message ?? ""
+      }`
+    );
+
+    this.currentHookName = hook.title;
+  };
+
+  private onHookEnd = (test: CypressTest): void => {
+    debug(
+      `onHookEnd [${test.state ?? "no state"}] ${test.title}: ${
+        test.err?.message ?? ""
+      }`
+    );
+
+    this.lastHookName = this.currentHookName;
+    this.currentHookName = null;
+  };
+
+  private onTestBegin = (test: CypressTest): void => {
+    debug(
+      `onTestBegin [${test.state ?? "no state"}] ${test.title}: ${
+        test.err?.message ?? ""
+      }`
+    );
+
+    // It's possible the previous hook failed without invoking onHookEnd(). Once a test starts
+    // running, we stop caring about previous hooks.
+    this.lastHookName = null;
+    this.currentHookName = null;
+  };
+
   // This handler gets called after the final attempt of each test, so it's where we determine the
   // test's overall outcome and whether it's quarantined.
   // NB: An `err` argument is never passed to this event handler.
+  // For hook failures, this gets called with this.currentHookName still set. The test title never
+  // has the hook name in it here.
   private onTestEnd = (test: CypressTest): void => {
     debug(
       `onTestEnd [${test.state ?? "no state"}] ${test.title}: ${
@@ -795,6 +884,10 @@ export default class UnflakableSpecReporter extends reporters.Base {
     if (test.state === "passed") {
       this.reportTestPassed(test);
     } else if (test.state === "failed") {
+      if (test.err !== undefined && this.currentHookName !== null) {
+        addHookNameToError(this.currentHookName, test.err);
+      }
+
       const currentRetry = currentTestRetry(test);
       // Edge case: a test failed and won't be retried due to a before()/after() hook failing. In
       // this case, we already added the test to this.retriedTests in onTestFail() (where it was
@@ -804,7 +897,7 @@ export default class UnflakableSpecReporter extends reporters.Base {
       if (currentRetry < testRetries(test)) {
         const existingTestFailureIdx = this.retriedTests.findIndex(
           (existingTestFailure) =>
-            existingTestFailure.test.id === test.id &&
+            deepEqual(existingTestFailure.titlePath, test.titlePath()) &&
             currentTestRetry(existingTestFailure.test) === currentRetry
         );
         if (existingTestFailureIdx !== -1) {
@@ -875,6 +968,10 @@ export default class UnflakableSpecReporter extends reporters.Base {
   };
 
   // NB: An `err` argument is never passed to this event handler.
+  // For hook failures, this gets called without this.currentHookName set because onHookEnd() gets
+  // called first. Instead, we use this.lastHookName. The test.hookName attribute is also set, which
+  // lets us determine if the error was caused by a hook. However, this doesn't include the full
+  // user-supplied hook title, so we instead rely on currentHookName/lastHookName.
   private onTestRetry = (
     test: MochaEventTest & { hookName?: string }
   ): void => {
@@ -884,11 +981,26 @@ export default class UnflakableSpecReporter extends reporters.Base {
       }`
     );
 
+    const hookName =
+      test.hookName !== undefined
+        ? this.currentHookName ?? this.lastHookName
+        : null;
+
+    const titlePath = [
+      // The root suite has an empty title that needs to be skipped.
+      ...this.currentSuiteTitles.slice(1),
+      test.title,
+    ];
+
+    if (test.err !== undefined && hookName !== null) {
+      addHookNameToError(hookName, test.err);
+    }
+
     // Edge case: onTestRetry() gets called twice if a test fails and its afterEach() hook also
     // fails. However, we don't want to print the failed attempt twice in that case.
     if (
-      pushOrMergeFailedTest(this.retriedTests, test) ||
-      test.hookName === undefined
+      pushOrMergeFailedTest(this.retriedTests, test, titlePath) ||
+      hookName === null
     ) {
       console.log(
         this.indent() +

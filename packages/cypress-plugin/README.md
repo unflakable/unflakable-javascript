@@ -19,7 +19,7 @@ complete usage instructions.
 
 This plugin maintains compatibility with the Cypress and Node.js versions listed below:
 
-[![11.2.0+ | 12.0.0+](https://img.shields.io/badge/Cypress-11.2.0%2B%20%7C%2012.0.0%2B-17202C?logo=cypress&labelColor=white&logoColor=17202C&style=flat)](https://cypress.io)
+[![11.2.0+ | 12.0.0+ | 13.0.0+](https://img.shields.io/badge/Cypress-11.2.0%2B%20%7C%2012.0.0%2B%20%7C%2013.0.0%2B-17202C?logo=cypress&labelColor=white&logoColor=17202C&style=flat)](https://cypress.io)
 [![16 | 18 | 20](https://img.shields.io/badge/Node.js-16%20%7C%2018%20%7C%2020-339933?logo=node.js&labelColor=white&logoColor=339933&style=flat)](https://nodejs.org)
 
 ## Contributing

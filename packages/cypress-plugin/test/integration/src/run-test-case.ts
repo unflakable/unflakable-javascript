@@ -33,6 +33,8 @@ import {
   AsyncTestError,
   spawnTestWithTimeout,
 } from "unflakable-test-common/dist/spawn";
+import cypressPackage from "cypress/package.json";
+import semverLt from "semver/functions/lt";
 
 // Jest times out after 120 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
@@ -175,6 +177,12 @@ type ExpectedRunRecord = {
   attemptResults: TestAttemptResult[];
 };
 
+// Cypress 13 removed per-attempt timing information. See:
+//  - https://github.com/cypress-io/cypress/issues/27732
+//  - https://github.com/cypress-io/cypress/pull/27230
+//  - https://github.com/cypress-io/cypress/issues/27390
+const expectPerAttemptTiming = semverLt(cypressPackage.version, "13.0.0");
+
 const expectSpecRuns = (
   params: TestCaseParams,
   specNameStub: string,
@@ -183,11 +191,15 @@ const expectSpecRuns = (
   params.specNameStubs === undefined ||
   params.specNameStubs.includes(specNameStub)
     ? expectedRunRecords.map(({ name, attemptResults }) => ({
-        attempts: attemptResults.map((result) => ({
-          start_time: expectExt.stringMatching(TIMESTAMP_REGEX),
-          duration_ms: expectExt.toBeAnInteger(),
-          result,
-        })),
+        attempts: attemptResults.map((result) =>
+          expectPerAttemptTiming
+            ? {
+                start_time: expectExt.stringMatching(TIMESTAMP_REGEX),
+                duration_ms: expectExt.toBeAnInteger(),
+                result,
+              }
+            : { result }
+        ),
         filename: specRepoPath(params, specNameStub),
         name,
       }))

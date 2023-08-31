@@ -3,6 +3,7 @@
 describe("describe block", () => {
   if (Cypress.env("SKIP_BEFORE_HOOK") === undefined) {
     before(
+      "before hook with title",
       /**
        * @param {Mocha.Done} done
        */
@@ -21,6 +22,7 @@ describe("describe block", () => {
 
   if (Cypress.env("SKIP_BEFORE_EACH_HOOK") === undefined) {
     beforeEach(
+      "beforeEach hook with title",
       /**
        * @param {Mocha.Done} done
        */
@@ -49,6 +51,7 @@ describe("describe block", () => {
 
   if (Cypress.env("SKIP_AFTER_EACH_HOOK") === undefined) {
     afterEach(
+      "afterEach hook with title",
       /**
        * @param {Mocha.Done} done
        */
@@ -67,6 +70,7 @@ describe("describe block", () => {
 
   if (Cypress.env("SKIP_AFTER_HOOK") === undefined) {
     after(
+      "after hook with title",
       /**
        * @param {Mocha.Done} done
        */

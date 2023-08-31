@@ -2,7 +2,7 @@
 
 describe("describe block", () => {
   if (Cypress.env("SKIP_BEFORE_HOOK") === undefined) {
-    before((done: Mocha.Done) => {
+    before("before hook with title", (done: Mocha.Done) => {
       process.nextTick(() => {
         throw new Error("before Error #1");
       });
@@ -15,7 +15,7 @@ describe("describe block", () => {
   }
 
   if (Cypress.env("SKIP_BEFORE_EACH_HOOK") === undefined) {
-    beforeEach((done: Mocha.Done) => {
+    beforeEach("beforeEach hook with title", (done: Mocha.Done) => {
       process.nextTick(() => {
         throw new Error("beforeEach Error #1");
       });
@@ -37,7 +37,7 @@ describe("describe block", () => {
   it("should be skipped", () => undefined);
 
   if (Cypress.env("SKIP_AFTER_EACH_HOOK") === undefined) {
-    afterEach((done: Mocha.Done) => {
+    afterEach("afterEach hook with title", (done: Mocha.Done) => {
       process.nextTick(() => {
         throw new Error("afterEach Error #1");
       });
@@ -50,7 +50,7 @@ describe("describe block", () => {
   }
 
   if (Cypress.env("SKIP_AFTER_HOOK") === undefined) {
-    after((done: Mocha.Done) => {
+    after("after hook with title", (done: Mocha.Done) => {
       process.nextTick(() => {
         throw new Error("after Error #1");
       });
