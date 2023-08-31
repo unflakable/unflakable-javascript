@@ -1345,9 +1345,9 @@ export const verifyOutput = (
     ).toStrictEqual(expectedSpecs);
 
     // Make sure there are no unexpected specs.
-    expect(expectedSpecs).toStrictEqual(
+    expect(
       parsedOutput.specOutputs.map((spec) => spec.filename).sort()
-    );
+    ).toStrictEqual(expectedSpecs);
 
     verifySpecOutputs(params, parsedOutput.specOutputs);
   }
