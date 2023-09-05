@@ -103,7 +103,7 @@ jobs:
   cypress_linux_integration_tests:
     name: "Cypress ${{ matrix.cypress }} Linux Node ${{ matrix.node }} Integration Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 80
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
