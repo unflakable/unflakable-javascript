@@ -5,7 +5,6 @@
 </p>
 
 [![npm version](https://img.shields.io/npm/v/@unflakable/jest-plugin.svg)](https://www.npmjs.com/package/@unflakable/jest-plugin)
-[![Twitter](https://img.shields.io/twitter/url?label=%40unflakable&style=social&url=https%3A%2F%2Ftwitter.com%2Funflakable)](https://twitter.com/unflakable)
 
 # Unflakable Plugin for Jest
 

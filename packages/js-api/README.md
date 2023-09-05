@@ -5,7 +5,6 @@
 </p>
 
 [![npm version](https://img.shields.io/npm/v/@unflakable/js-api.svg)](https://www.npmjs.com/package/@unflakable/js-api)
-[![Twitter](https://img.shields.io/twitter/url?label=%40unflakable&style=social&url=https%3A%2F%2Ftwitter.com%2Funflakable)](https://twitter.com/unflakable)
 
 # Unflakable JavaScript API
 
