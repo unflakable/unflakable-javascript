@@ -9,6 +9,7 @@ module.exports = {
     /attempting to close the browser tab(?:(?!resetting server state).)*$/s,
     /Still waiting to connect to Edge, retrying in 1 second.*(?:Error: Test timed out after|All promises were rejected)/s,
     /There was an error reconnecting to the Chrome DevTools protocol\. Please restart the browser\./,
+    /Cypress failed to make a connection to the Chrome DevTools Protocol after retrying/,
     // When this error occurs, Cypress ends up printing the "Running: <spec>" header multiple times,
     // which the integration test parses as if that spec were in fact invoked multiple times. We
     // don't want the test itself to ignore multiple spec invocations since that could indicate a
