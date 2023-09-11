@@ -16,7 +16,7 @@
     "jest-environment-node": "25.1.0 - 29",
     "jest-get-type": "25.1.0 - 29",
     "jest-matcher-utils": "25.1.0 - 29",
-    "mockttp": "^3.7.5",
+    "mockttp": "^3.9.2",
     "semver": "^7.5.4",
     "tmp": "^0.2.1",
     "typescript": "^4.9.5",
