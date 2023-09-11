@@ -36,9 +36,9 @@ import {
 import cypressPackage from "cypress/package.json";
 import semverLt from "semver/functions/lt";
 
-// Jest times out after 120 seconds, so we bail early here to allow time to print the
+// Jest times out after 240 seconds, so we bail early here to allow time to print the
 // captured output before Jest kills the test.
-const TEST_TIMEOUT_MS = 110000;
+const TEST_TIMEOUT_MS = 230000;
 
 const userAgentRegex = new RegExp(
   "unflakable-js-api/(?:[-0-9.]|alpha|beta)+ unflakable-cypress-plugin/(?:[-0-9.]|alpha|beta)+ \\(Cypress [0-9]+\\.[0-9]+\\.[0-9]+; Node v[0-9]+\\.[0-9]+\\.[0-9]\\)"
