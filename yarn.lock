@@ -11286,17 +11286,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yargs-parser@npm:13.1.1":
-  version: 13.1.1
-  resolution: "yargs-parser@npm:13.1.1"
-  dependencies:
-    camelcase: ^5.0.0
-    decamelize: ^1.2.0
-  checksum: fa5fd27736aa423dc9a114d160dae94625f7faf19c252b8c91ac0197be9715d1dbc9b98fda893f75f182111fb6c3c0ce60c631b73859dd1a06bec07cddfb98f4
-  languageName: node
-  linkType: hard
-
-"yargs-parser@npm:^13.1.1":
+"yargs-parser@npm:13.1.1, yargs-parser@npm:^13.1.1":
   version: 13.1.2
   resolution: "yargs-parser@npm:13.1.2"
   dependencies:
