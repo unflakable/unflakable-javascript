@@ -8,10 +8,12 @@ import { registerTasks } from "./config/tasks.js";
 import webpackConfig from "./config/webpack.js";
 import { registerSimpleGitMock } from "unflakable-test-common/dist/git.js";
 import { registerCosmiconfigMock } from "unflakable-test-common/dist/config.js";
+import { fixHeadlessChrome } from "./config/headless.js";
 
 export default defineConfig({
   component: {
     setupNodeEvents(on: Cypress.PluginEvents, _config) {
+      fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);
@@ -31,6 +33,7 @@ export default defineConfig({
       | Promise<Cypress.PluginConfigOptions | void>
       | Cypress.PluginConfigOptions
       | void {
+      fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);

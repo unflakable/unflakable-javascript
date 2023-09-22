@@ -11,6 +11,7 @@
     "types": ["cypress", "node"]
   },
   "include": [
+    "../../cypress-on-fix.d.ts",
     ".eslintrc.js",
     "config",
     "config-js",

@@ -8,6 +8,7 @@ import { registerCosmiconfigMock } from "unflakable-test-common/dist/config.js";
 import { registerUnflakable } from "@unflakable/cypress-plugin";
 import semverGte from "semver/functions/gte.js";
 import path from "path";
+import headless from "./config/headless.js";
 import cypressOnFix from "cypress-on-fix";
 
 /**
@@ -22,6 +23,7 @@ export default {
      */
     setupNodeEvents(baseOn, config) {
       const on = cypressOnFix(baseOn);
+      headless.fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       tasks.registerTasks(on);
@@ -43,6 +45,7 @@ export default {
      */
     setupNodeEvents(baseOn, config) {
       const on = cypressOnFix(baseOn);
+      headless.fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       tasks.registerTasks(on);

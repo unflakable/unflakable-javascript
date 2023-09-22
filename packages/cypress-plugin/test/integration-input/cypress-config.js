@@ -7,6 +7,7 @@ const { registerSimpleGitMock } = require("unflakable-test-common/dist/git");
 const {
   registerCosmiconfigMock,
 } = require("unflakable-test-common/dist/config");
+const { fixHeadlessChrome } = require("config-js/headless");
 
 module.exports = {
   /**
@@ -20,6 +21,7 @@ module.exports = {
        * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
        */
       setupNodeEvents(on, _config) {
+        fixHeadlessChrome(on);
         registerCosmiconfigMock();
         registerSimpleGitMock();
         registerTasks(on);
@@ -38,6 +40,7 @@ module.exports = {
        * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
        */
       setupNodeEvents(on, _config) {
+        fixHeadlessChrome(on);
         registerCosmiconfigMock();
         registerSimpleGitMock();
         registerTasks(on);

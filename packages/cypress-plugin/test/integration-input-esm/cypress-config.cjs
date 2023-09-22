@@ -17,6 +17,9 @@ module.exports = {
        * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
        */
       async setupNodeEvents(on, _config) {
+        const { fixHeadlessChrome } = await import("./config-js/headless.js");
+
+        fixHeadlessChrome(on);
         registerCosmiconfigMock();
         registerSimpleGitMock();
 
@@ -38,6 +41,9 @@ module.exports = {
        * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
        */
       async setupNodeEvents(on, _config) {
+        const { fixHeadlessChrome } = await import("./config-js/headless.js");
+
+        fixHeadlessChrome(on);
         registerCosmiconfigMock();
         registerSimpleGitMock();
 

@@ -11,6 +11,7 @@ const semverGte = require("semver/functions/gte");
 
 const { registerUnflakable } = require("@unflakable/cypress-plugin");
 const path = require("path");
+const { fixHeadlessChrome } = require("./config/headless");
 const cypressOnFix = require("cypress-on-fix");
 
 module.exports = {
@@ -25,6 +26,7 @@ module.exports = {
      */
     setupNodeEvents(baseOn, config) {
       const on = cypressOnFix(baseOn);
+      fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);
@@ -46,6 +48,7 @@ module.exports = {
      */
     setupNodeEvents(baseOn, config) {
       const on = cypressOnFix(baseOn);
+      fixHeadlessChrome(on);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);
