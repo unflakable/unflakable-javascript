@@ -110,6 +110,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_cypress == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 16
       matrix:
         node:
           - 16
@@ -218,6 +219,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_cypress == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 16
       matrix:
         node:
           - 16
@@ -326,6 +328,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_jest == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 12
       matrix:
         node:
           - 16
@@ -443,6 +446,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.check.outputs.affects_jest == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 12
       matrix:
         node:
           - 16
