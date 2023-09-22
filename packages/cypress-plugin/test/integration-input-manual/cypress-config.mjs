@@ -8,6 +8,7 @@ import { registerCosmiconfigMock } from "unflakable-test-common/dist/config.js";
 import { registerUnflakable } from "@unflakable/cypress-plugin";
 import semverGte from "semver/functions/gte.js";
 import path from "path";
+import cypressOnFix from "cypress-on-fix";
 
 /**
  * @type {Cypress.ConfigOptions}
@@ -15,11 +16,12 @@ import path from "path";
 export default {
   component: {
     /**
-     * @param {Cypress.PluginEvents} on
+     * @param {Cypress.PluginEvents} baseOn
      * @param {Cypress.PluginConfigOptions} config
      * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
      */
-    setupNodeEvents(on, config) {
+    setupNodeEvents(baseOn, config) {
+      const on = cypressOnFix(baseOn);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       tasks.registerTasks(on);
@@ -35,11 +37,12 @@ export default {
   },
   e2e: {
     /**
-     * @param {Cypress.PluginEvents} on
+     * @param {Cypress.PluginEvents} baseOn
      * @param {Cypress.PluginConfigOptions} config
      * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
      */
-    setupNodeEvents(on, config) {
+    setupNodeEvents(baseOn, config) {
+      const on = cypressOnFix(baseOn);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       tasks.registerTasks(on);

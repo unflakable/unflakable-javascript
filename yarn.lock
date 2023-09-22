@@ -3218,6 +3218,7 @@ __metadata:
     cross-env: ^7.0.3
     cypress: 11.2 - 13
     cypress-multi-reporters: ^1.6.3
+    cypress-on-fix: ^1.0.2
     dayjs: ^1.10.4
     debug: ^4.3.3
     deep-equal: ^2.0.5
@@ -4789,6 +4790,7 @@ __metadata:
     "@unflakable/cypress-plugin": "workspace:^"
     cypress: 11.2 - 13
     cypress-multi-reporters: ^1.6.3
+    cypress-on-fix: ^1.0.2
     mocha: =7.0.1
     mocha-junit-reporter: ^2.2.0
     process: ^0.11.10
@@ -4853,6 +4855,13 @@ __metadata:
   peerDependencies:
     mocha: ">=3.1.2"
   checksum: fe8038ea86ade399eb67c8695951052e81298922cea53e47c87fb558456b1aca30c4624b20fed0156445d011bdaf2eb83b665ebfe029c773f031504f463e34ee
+  languageName: node
+  linkType: hard
+
+"cypress-on-fix@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "cypress-on-fix@npm:1.0.2"
+  checksum: b35e0d49e4270237e7cbe95c21d458772d3df6bbb4423346c70f9417e61fdf061ad1d83aca76a854a378d001a68f50c17b8dd312fbe9c50b5d12e61fc317a785
   languageName: node
   linkType: hard
 

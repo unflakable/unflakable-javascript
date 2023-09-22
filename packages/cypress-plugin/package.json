@@ -52,6 +52,7 @@
     "cli-table3": "0.5.1",
     "cosmiconfig": "^7.0.1",
     "cypress-multi-reporters": "^1.6.3",
+    "cypress-on-fix": "^1.0.2",
     "dayjs": "^1.10.4",
     "debug": "^4.3.3",
     "deep-equal": "^2.0.5",

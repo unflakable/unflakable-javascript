@@ -1,4 +1,4 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["../mocha.d.ts", ".", ".eslintrc.js"]
+  "include": ["../cypress-on-fix.d.ts", "../mocha.d.ts", ".", ".eslintrc.js"]
 }

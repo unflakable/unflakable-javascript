@@ -15,5 +15,5 @@
     // Avoids conflicting global definitions from, e.g., jest.
     "types": ["node"]
   },
-  "include": ["mocha.d.ts", "rollup.config.mjs"]
+  "include": ["cypress-on-fix.d.ts", "mocha.d.ts", "rollup.config.mjs"]
 }

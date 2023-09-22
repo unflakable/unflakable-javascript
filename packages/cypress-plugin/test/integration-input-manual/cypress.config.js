@@ -11,6 +11,7 @@ const semverGte = require("semver/functions/gte");
 
 const { registerUnflakable } = require("@unflakable/cypress-plugin");
 const path = require("path");
+const cypressOnFix = require("cypress-on-fix");
 
 module.exports = {
   /**
@@ -18,11 +19,12 @@ module.exports = {
    */
   component: {
     /**
-     * @param {Cypress.PluginEvents} on
+     * @param {Cypress.PluginEvents} baseOn
      * @param {Cypress.PluginConfigOptions} config
      * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
      */
-    setupNodeEvents(on, config) {
+    setupNodeEvents(baseOn, config) {
+      const on = cypressOnFix(baseOn);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);
@@ -38,11 +40,12 @@ module.exports = {
   },
   e2e: {
     /**
-     * @param {Cypress.PluginEvents} on
+     * @param {Cypress.PluginEvents} baseOn
      * @param {Cypress.PluginConfigOptions} config
      * @returns {Promise<Cypress.PluginConfigOptions | void> | Cypress.PluginConfigOptions | void}
      */
-    setupNodeEvents(on, config) {
+    setupNodeEvents(baseOn, config) {
+      const on = cypressOnFix(baseOn);
       registerCosmiconfigMock();
       registerSimpleGitMock();
       registerTasks(on);

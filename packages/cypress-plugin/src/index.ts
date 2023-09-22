@@ -19,6 +19,7 @@ import {
   ENV_VAR_AUTO_SUPPORT,
   ENV_VAR_UNFLAKABLE_RESOLVED_CONFIG_JSON,
 } from "./config-env-vars";
+import cypressOnFix from "cypress-on-fix";
 
 export { PluginOptions };
 
@@ -100,9 +101,14 @@ const wrapSetupNodeEvents =
       | undefined
   ) =>
   async (
-    on: Cypress.PluginEvents,
+    baseOn: Cypress.PluginEvents,
     config: Cypress.PluginConfigOptions
   ): Promise<Cypress.PluginConfigOptions> => {
+    // Due to https://github.com/cypress-io/cypress/issues/22428, only the last event handler
+    // registered for each event type will be called. This means we'll clobber any event handlers
+    // the user registers. To avoid this, we use cypress-on-fix.
+    const on = cypressOnFix(baseOn);
+
     const userModifiedConfig =
       userSetupNodeEvents !== undefined
         ? await userSetupNodeEvents(on, config)
