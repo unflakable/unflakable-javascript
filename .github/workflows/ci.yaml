@@ -8,8 +8,8 @@ on:
 
   # Run the pipeline daily so that we get continuous dogfooding.
   schedule:
-    # Run at 6pm UTC/10am Pacific
-    - cron: 0 18 * * *
+    # Run at 8am UTC/midnight Pacific
+    - cron: 0 8 * * *
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch: {}
