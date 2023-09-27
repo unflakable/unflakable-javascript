@@ -131,6 +131,7 @@ jobs:
           - "13.0"
           - "13.1"
           - "13.2"
+          - "13.3"
     steps:
       - uses: actions/checkout@v4
 
@@ -240,6 +241,7 @@ jobs:
           - "13.0"
           - "13.1"
           - "13.2"
+          - "13.3"
     steps:
       - uses: actions/checkout@v4
 
