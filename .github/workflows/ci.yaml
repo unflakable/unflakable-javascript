@@ -213,7 +213,7 @@ jobs:
     name: "Cypress ${{ matrix.cypress }} Windows Node ${{ matrix.node }} Integration Tests"
     runs-on: windows-2019
     # Cypress on Windows is slowwww...
-    timeout-minutes: 120
+    timeout-minutes: 180
     needs:
       # Don't incur the cost of the test matrix if the basic build fails.
       - check
