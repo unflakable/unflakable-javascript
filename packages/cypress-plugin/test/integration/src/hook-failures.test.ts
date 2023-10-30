@@ -1,6 +1,14 @@
 // Copyright (c) 2023 Developer Innovations, LLC
 
 import { integrationTest, integrationTestSuite } from "./test-wrappers";
+import semverLt from "semver/functions/lt";
+import cypressPackage from "cypress/package.json";
+
+// Cypress 13.4 broke the handling of multiple hook failures. Prior to that version, Cypress/Mocha
+// reported both errors as failures of the first test in the suite, and then skipped all remaining
+// tests. Beginning in 13.4, Cypress skips all tests in the suite and never reports either error.
+// This was most likely introduced in https://github.com/cypress-io/cypress/pull/27930.
+const supportMultipleHookErrors = semverLt(cypressPackage.version, "13.4.0");
 
 integrationTestSuite((mockBackend) => {
   it("run should succeed when before() fails and both tests are quarantined", (done) =>
@@ -303,28 +311,31 @@ integrationTestSuite((mockBackend) => {
       done
     ));
 
-  it("multiple before() hook errors", (done) =>
-    integrationTest(
-      {
-        params: {
-          multipleHookErrors: true,
-          specNameStubs: ["hook-fail"],
+  (supportMultipleHookErrors ? it : it.skip)(
+    "multiple before() hook errors",
+    (done) =>
+      integrationTest(
+        {
+          params: {
+            multipleHookErrors: true,
+            specNameStubs: ["hook-fail"],
+          },
+          expectedExitCode: 1,
+          summaryTotals: {
+            icon: "fail",
+            numFailing: 1,
+            numFlaky: 0,
+            numPassing: 0,
+            numPending: 0,
+            numQuarantined: 0,
+            numSkipped: 1,
+            numTests: 2,
+          },
         },
-        expectedExitCode: 1,
-        summaryTotals: {
-          icon: "fail",
-          numFailing: 1,
-          numFlaky: 0,
-          numPassing: 0,
-          numPending: 0,
-          numQuarantined: 0,
-          numSkipped: 1,
-          numTests: 2,
-        },
-      },
-      mockBackend,
-      done
-    ));
+        mockBackend,
+        done
+      )
+  );
 
   it("test and afterEach() hook errors", (done) =>
     integrationTest(

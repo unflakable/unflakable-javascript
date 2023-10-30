@@ -22,10 +22,17 @@ import {
 import { expect as expectExt } from "@jest/globals";
 import escapeStringRegexp from "escape-string-regexp";
 import { TestAttemptResult } from "@unflakable/js-api";
+import semverGte from "semver/functions/gte";
+import cypressPackage from "cypress/package.json";
 
 const THROWN_ERROR = "\x1B[0m\x1B[31m     Error\x1B[0m\x1B[90m";
 const FAIL_SYMBOL = process.platform === "win32" ? "×" : "✖";
 const PASS_SYMBOL = process.platform === "win32" ? "√" : "✓";
+
+// Cypress 13.4 changed the number of retries returned after a retry passes (i.e., when a test is
+// flaky). See:
+// https://github.com/cypress-io/cypress/blob/5a95541c3c4e48bfc67a54642abc949576fa6f05/packages/driver/patches/mocha%2B7.0.1.dev.patch
+const adjustRetriesOnPass = semverGte(cypressPackage.version, "13.4.0");
 
 const verifySpecOutput = (
   params: TestCaseParams,
@@ -141,7 +148,7 @@ const verifySpecOutputs = (
                           new RegExp(
                             // eslint-disable-next-line no-control-regex
                             `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
-                              expectedRetries + 1
+                              adjustRetriesOnPass ? 2 : expectedRetries + 1
                             }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                           )
                         ),
@@ -169,7 +176,7 @@ const verifySpecOutputs = (
                   new RegExp(
                     // eslint-disable-next-line no-control-regex
                     `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: flake should be quarantined\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
-                      expectedRetries + 1
+                      adjustRetriesOnPass ? 2 : expectedRetries + 1
                     }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                   )
                 ),
@@ -208,7 +215,7 @@ const verifySpecOutputs = (
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
                         `^ {2}\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
-                          expectedRetries + 1
+                          adjustRetriesOnPass ? 2 : expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     )
@@ -216,7 +223,7 @@ const verifySpecOutputs = (
                       new RegExp(
                         // eslint-disable-next-line no-control-regex
                         `^ {2}\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m mixed: should be flaky\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
-                          expectedRetries + 1
+                          adjustRetriesOnPass ? 2 : expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     ),
@@ -708,7 +715,7 @@ const verifySpecOutputs = (
                         `^\x1B\\[35m {2}${PASS_SYMBOL}\x1B\\[39m\x1B\\[90m should be flaky${escapeStringRegexp(
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[35m \\[flaky, quarantined]\x1B\\[39m\x1B\\[33m \\(attempt 2 of ${
-                          expectedRetries + 1
+                          adjustRetriesOnPass ? 2 : expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     )
@@ -718,7 +725,7 @@ const verifySpecOutputs = (
                         `^\x1B\\[33m {2}${PASS_SYMBOL}\x1B\\[0m\x1B\\[90m should be flaky${escapeStringRegexp(
                           expectedFlakeTestNameSuffix
                         )}\x1B\\[0m\x1B\\[33m \\[flaky]\x1B\\[0m\x1B\\[33m \\(attempt 2 of ${
-                          expectedRetries + 1
+                          adjustRetriesOnPass ? 2 : expectedRetries + 1
                         }\\)\x1B\\[0m\x1B\\[(?:33|90)m \\([0-9]+.+?\\)\x1B\\[0m$`
                       )
                     ),
