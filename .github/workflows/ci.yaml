@@ -131,7 +131,11 @@ jobs:
           - "13.0"
           - "13.1"
           - "13.2"
-          - "13.3"
+          # 13.3.2 introduced a regression that made that version (and 13.3.3) too flaky to test.
+          # See:
+          #   - https://github.com/cypress-io/cypress/issues/28141
+          #   - https://github.com/cypress-io/cypress/issues/28148
+          #- "13.3"
           - "13.4"
     steps:
       - uses: actions/checkout@v4
@@ -242,7 +246,7 @@ jobs:
           - "13.0"
           - "13.1"
           - "13.2"
-          - "13.3"
+          #- "13.3"
           - "13.4"
     steps:
       - uses: actions/checkout@v4
