@@ -16,5 +16,6 @@ module.exports = {
     // bug. Instead, we treat it as a test independent failure iff this error message is in the
     // output. Otherwise, we'll still treat it as a true failure.
     /Timed out waiting for the browser to connect. Retrying\.\.\./,
+    /Cypress verification timed out\./,
   ],
 };
