@@ -137,6 +137,7 @@ jobs:
           #   - https://github.com/cypress-io/cypress/issues/28148
           #- "13.3"
           - "13.4"
+          - "13.5"
     steps:
       - uses: actions/checkout@v4
 
@@ -175,6 +176,9 @@ jobs:
           mv package-new.json package.json
           yarn install --no-immutable
 
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
+
       - name: Set Cypress version
         env:
           CYPRESS_INSTALL_BINARY: "0"
@@ -184,9 +188,6 @@ jobs:
 
       - name: Install Cypress binary
         run: yarn workspace cypress-integration exec cypress install
-
-      - name: Build test dependencies
-        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
 
       - name: Test
         env:
@@ -248,6 +249,7 @@ jobs:
           - "13.2"
           #- "13.3"
           - "13.4"
+          - "13.5"
     steps:
       - uses: actions/checkout@v4
 
@@ -290,6 +292,9 @@ jobs:
           mv package-new.json package.json
           yarn install --no-immutable
 
+      - name: Build test dependencies
+        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
+
       - name: Set Cypress version
         env:
           CYPRESS_INSTALL_BINARY: "0"
@@ -299,9 +304,6 @@ jobs:
 
       - name: Install Cypress binary
         run: yarn workspace cypress-integration exec cypress install
-
-      - name: Build test dependencies
-        run: yarn build:plugins-common && yarn build:test-common && yarn build:cypress-tests
 
       - name: Test
         env:
