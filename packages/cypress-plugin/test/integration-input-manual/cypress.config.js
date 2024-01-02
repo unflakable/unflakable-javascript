@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 const { openDevToolsOnLaunch } = require("./config/devtools");
 const { registerTasks } = require("./config/tasks");

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 const testFn = Cypress.env("SKIP_FAILURES") !== undefined ? it.skip : it;
 

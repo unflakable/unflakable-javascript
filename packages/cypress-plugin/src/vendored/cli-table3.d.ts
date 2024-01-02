@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Cypress imports this even though it's not part of the cli-table3 exports, so we add some types
 // here.

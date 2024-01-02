@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Make sure expected output is present and chalk-formatted correctly.
 import {

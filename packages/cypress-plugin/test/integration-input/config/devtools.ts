@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 export const openDevToolsOnLaunch = (on: Cypress.PluginEvents): void => {
   // Open DevTools automatically. Only works for headed modes (i.e., not in screenshots or

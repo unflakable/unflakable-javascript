@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 import { defineConfig } from "cypress";
 // Relative import paths require file extensions in ESM.

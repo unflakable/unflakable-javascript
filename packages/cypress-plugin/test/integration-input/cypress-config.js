@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 const { openDevToolsOnLaunch } = require("config-js/devtools");
 const webpackConfig = require("config-js/webpack");

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 import devtools from "./config/devtools.js";
 import tasks from "./config/tasks.js";

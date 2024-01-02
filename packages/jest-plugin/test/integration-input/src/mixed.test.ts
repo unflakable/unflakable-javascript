@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023 Developer Innovations, LLC
+// Copyright (c) 2022-2024 Developer Innovations, LLC
 
 // This test contains both a failed test and a quarantined one, which the reporter should treat as
 // a failed test file. However, the quarantined test should still be reported as having been

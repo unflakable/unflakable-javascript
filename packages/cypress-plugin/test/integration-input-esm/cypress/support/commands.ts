@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Webpack non-deterministically reports a TypeScript error here when run through Cypress. It seems
 // to happen when `cypress-support-file` includes

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Avoid depending on the core of the js-api, which includes a bunch of Node dependencies. We need
 // this module to work in the browser for the Cypress plugin's skip-tests module.

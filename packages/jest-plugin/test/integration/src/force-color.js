@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Jest changes FORCE_COLOR to 1 when it forks child processes. We execute this script with
 // `node --require` so that each subprocess has the correct FORCE_COLOR value to produce the color

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 import { loadConfig } from "./config";
 import { cosmiconfigSync, Options } from "cosmiconfig";

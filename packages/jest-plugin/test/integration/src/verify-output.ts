@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // These are the chalk-formatted strings that include console color codes.
 import escapeStringRegexp from "escape-string-regexp";

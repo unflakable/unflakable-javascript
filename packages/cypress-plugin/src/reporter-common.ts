@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // Reporter stats from running a single spec.
 export type ReporterStats = Mocha.Stats & {

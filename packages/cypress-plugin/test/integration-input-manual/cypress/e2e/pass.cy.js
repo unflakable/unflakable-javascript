@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 it("should pass", () => {
   // Make sure the project's support file works even when skip_tests generates a temporary one on

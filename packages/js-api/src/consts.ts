@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 export const JS_API_VERSION: string =
   // eslint-disable-next-line @typescript-eslint/no-var-requires

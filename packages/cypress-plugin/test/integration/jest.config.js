@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // NB: We *MUST* run this test suite with --runInBand because running multiple instances of Cypress
 // concurrently on the same machine is not supported and runs into a bunch of race conditions that

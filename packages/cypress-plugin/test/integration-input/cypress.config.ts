@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 import { registerSimpleGitMock } from "unflakable-test-common/dist/git";
 import { registerCosmiconfigMock } from "unflakable-test-common/dist/config";

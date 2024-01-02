@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 /**
  * Workaround for https://github.com/cypress-io/cypress/issues/27804.

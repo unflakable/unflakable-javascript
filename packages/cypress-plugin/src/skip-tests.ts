@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Developer Innovations, LLC
+// Copyright (c) 2023-2024 Developer Innovations, LLC
 
 // This file runs inside the browser as part of the test code. It gets loaded by a Cypress support
 // file injected by the plugin when quarantine mode is set to `skip_tests`.
